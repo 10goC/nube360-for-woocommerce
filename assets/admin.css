@@ -1,0 +1,26 @@
+/**
+ * Styles of the Settings > Nube360 screen.
+ */
+
+.nube360-wc-settings .nube360-wc-status {
+	font-size: 14px;
+	margin: 16px 0;
+}
+
+.nube360-wc-badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 3px;
+	font-weight: 600;
+	margin-left: 6px;
+}
+
+.nube360-wc-badge--ok {
+	background: #d4edda;
+	color: #155724;
+}
+
+.nube360-wc-badge--error {
+	background: #f8d7da;
+	color: #721c24;
+}

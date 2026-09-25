@@ -1,0 +1,172 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Nube360 for WooCommerce 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2026-09-25 19:23\n"
+"Last-Translator: Nube360\n"
+"Language-Team: Nube360\n"
+"POT-Creation-Date: 2026-09-25 19:23\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: nube360-for-woocommerce\n"
+
+#: includes/Admin.php:55 includes/Admin.php:56
+msgid "Nube360"
+msgstr "Nube360"
+
+#: includes/Admin.php:79
+msgid "You have unsaved changes. \"Test connection\" uses the saved data, not the form values. Save first?"
+msgstr "Tenés cambios sin guardar. \"Probar conexión\" usa los datos ya guardados, no los del formulario. ¿Guardar primero?"
+
+#: includes/Admin.php:183
+msgid "Nube360 Settings"
+msgstr "Ajustes de Nube360"
+
+#: includes/Admin.php:187
+msgid "WooCommerce is not active. Nube360 for WooCommerce needs WooCommerce to work."
+msgstr "WooCommerce no está activo. Nube360 for WooCommerce necesita WooCommerce para funcionar."
+
+#: includes/Admin.php:193
+msgid "Connection with Nube360 established successfully."
+msgstr "Conexión con Nube360 establecida correctamente."
+
+#: includes/Admin.php:197
+msgid "Could not connect to Nube360. Check the URL and the key."
+msgstr "No se pudo establecer la conexión con Nube360. Revisá la URL y la clave."
+
+#: includes/Admin.php:201
+msgid "Settings saved, but the URL and key must be filled in to connect to Nube360."
+msgstr "Se guardaron los ajustes, pero falta completar URL y clave para conectar con Nube360."
+
+#: includes/Admin.php:206
+msgid "Connection status:"
+msgstr "Estado de la conexión:"
+
+#: includes/Admin.php:208
+msgid "Connected"
+msgstr "Conectado"
+
+#. translators: %s: date and time of the last successful handshake
+#: includes/Admin.php:214
+#, php-format
+msgid "(last check: %s)"
+msgstr "(último chequeo: %s)"
+
+#: includes/Admin.php:221
+msgid "Not connected"
+msgstr "Sin conectar"
+
+#: includes/Admin.php:227
+msgid "Background images:"
+msgstr "Imágenes en segundo plano:"
+
+#. translators: 1: number of pending actions, 2: number of failed actions
+#: includes/Admin.php:231
+#, php-format
+msgid "%1$d pending, %2$d failed"
+msgstr "%1$d pendientes, %2$d fallidas"
+
+#: includes/Admin.php:237
+msgid "View scheduled actions"
+msgstr "Ver acciones programadas"
+
+#: includes/Admin.php:248
+msgid "Nube360 instance URL"
+msgstr "URL de la instancia Nube360"
+
+#: includes/Admin.php:259
+msgid "Base URL of your Nube360 instance, without a trailing slash."
+msgstr "URL base de tu instancia de Nube360, sin barra final."
+
+#: includes/Admin.php:264
+msgid "API key"
+msgstr "Clave de API"
+
+#: includes/Admin.php:273
+msgid "64-character key provided by Nube360"
+msgstr "Clave de 64 caracteres provista por Nube360"
+
+#: includes/Admin.php:276
+msgid "Generate it from the Nube360 dashboard (E-commerce > Integrations)."
+msgstr "La generás desde el dashboard de Nube360 (Ecommerce > Integraciones)."
+
+#: includes/Admin.php:283
+msgid "Save changes"
+msgstr "Guardar cambios"
+
+#: includes/Admin.php:286
+msgid "Test connection"
+msgstr "Probar conexión"
+
+#: includes/Auth.php:37
+msgid "Nube360 for WooCommerce has no API key configured."
+msgstr "Nube360 for WooCommerce no tiene una clave de API configurada."
+
+#: includes/Auth.php:47
+msgid "The Authorization: Bearer header is missing."
+msgstr "Falta el header Authorization: Bearer."
+
+#: includes/Auth.php:57
+msgid "The API key is not valid."
+msgstr "La clave de API no es válida."
+
+#: includes/Categories.php:87
+msgid "The category name is required."
+msgstr "El nombre de la categoría es obligatorio."
+
+#. translators: %d: HTTP status code
+#: includes/HttpClient.php:153
+#, php-format
+msgid "Nube360: the instance responded with HTTP status %d."
+msgstr "Nube360: la instancia respondió con estado HTTP %d."
+
+#. translators: 1: product id, 2: number of attempts
+#: includes/Images.php:115
+#, php-format
+msgid "No image could be downloaded for product %1$d after %2$d attempts."
+msgstr "No se pudo descargar ninguna imagen del producto %1$d tras %2$d intentos."
+
+#: includes/Orders.php:36
+msgid "The requested order does not exist."
+msgstr "El pedido indicado no existe."
+
+#: includes/Products.php:204
+msgid "The \"title\" field is required."
+msgstr "El campo \"title\" es obligatorio."
+
+#: includes/Products.php:214
+msgid "The \"variant.sku\" field is required."
+msgstr "El campo \"variant.sku\" es obligatorio."
+
+#: includes/Products.php:282
+msgid "The batch has no items."
+msgstr "El lote no trae ítems."
+
+#. translators: %d: maximum number of items per batch
+#: includes/Products.php:291
+#, php-format
+msgid "The batch exceeds the maximum of %d items."
+msgstr "El lote supera el máximo de %d ítems."
+
+#: includes/Products.php:497
+msgid "The given product does not exist or is not a family with variants."
+msgstr "El producto indicado no existe o no es una familia con variantes."
+
+#: includes/Products.php:810
+msgid "The given product/variant could not be deleted."
+msgstr "No se pudo borrar el producto/variante indicado."
+
+#: includes/Products.php:1080
+msgid "The given product or variant does not exist."
+msgstr "El producto o variante indicado no existe."
+
+#: includes/Products.php:1093
+msgid "The batch item is not valid."
+msgstr "El ítem del lote no es válido."
+
+#: nube360-for-woocommerce.php:148
+msgid "Nube360 for WooCommerce requires WooCommerce to be installed and active. The plugin stays inactive until then."
+msgstr "Nube360 for WooCommerce requiere que WooCommerce esté instalado y activo para funcionar. El plugin permanece inactivo hasta entonces."
