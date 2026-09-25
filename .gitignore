@@ -1,1 +1,4 @@
 .vscode
+vendor/
+.phpunit.result.cache
+tests/integration/wp-tests-config.php

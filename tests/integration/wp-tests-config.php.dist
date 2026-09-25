@@ -1,0 +1,49 @@
+<?php
+/**
+ * Configuration of the WordPress test library (wp-phpunit).
+ *
+ * Copy this file to wp-tests-config.php (same folder, ignored by git) and adjust
+ * it if the defaults do not fit your machine. Most setups only need environment
+ * variables (below), not edits.
+ *
+ * WARNING: the test library DROPS AND RECREATES every table of the database it
+ * points to. It must never be a development or production database, so this
+ * file refuses to run against a database whose name does not contain "test".
+ *
+ * Everything can be overridden with environment variables:
+ *   NUBE360_WC_TESTS_DB_NAME, _DB_USER, _DB_PASSWORD, _DB_HOST
+ *   WP_CORE_DIR   Directory of a WordPress install to use as core (read-only).
+ *
+ * @package Nube360\WooCommerce
+ */
+
+$nube360_env = function ( $name, $default ) {
+	$value = getenv( $name );
+	return false === $value || '' === $value ? $default : $value;
+};
+
+$nube360_db_name = $nube360_env( 'NUBE360_WC_TESTS_DB_NAME', 'nube360_wc_tests' );
+
+if ( false === stripos( $nube360_db_name, 'test' ) ) {
+	fwrite( STDERR, "Refusing to run the integration suite against database '{$nube360_db_name}': its name must contain \"test\".\n" );
+	exit( 1 );
+}
+
+// Core: by default the WordPress the plugin is installed in (wp-content/plugins/<plugin>/tests/integration).
+define( 'ABSPATH', rtrim( $nube360_env( 'WP_CORE_DIR', dirname( __DIR__, 5 ) ), '/' ) . '/' );
+
+define( 'DB_NAME', $nube360_db_name );
+define( 'DB_USER', $nube360_env( 'NUBE360_WC_TESTS_DB_USER', 'root' ) );
+define( 'DB_PASSWORD', $nube360_env( 'NUBE360_WC_TESTS_DB_PASSWORD', '' ) );
+define( 'DB_HOST', $nube360_env( 'NUBE360_WC_TESTS_DB_HOST', 'localhost' ) );
+define( 'DB_CHARSET', 'utf8mb4' );
+define( 'DB_COLLATE', '' );
+
+define( 'WP_TESTS_DOMAIN', 'example.org' );
+define( 'WP_TESTS_EMAIL', 'admin@example.org' );
+define( 'WP_TESTS_TITLE', 'Nube360 for WooCommerce tests' );
+define( 'WP_PHP_BINARY', PHP_BINARY );
+define( 'WPLANG', '' );
+define( 'WP_DEBUG', true );
+
+$table_prefix = 'wptests_';

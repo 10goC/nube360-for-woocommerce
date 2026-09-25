@@ -1,0 +1,15 @@
+# Files that exist in the repository but do not belong in the plugin zip
+# (used by `wp dist-archive` and the WordPress.org deploy actions).
+.git
+.gitignore
+.vscode
+.distignore
+CLAUDE.md
+AGENTS.md
+composer.json
+composer.lock
+phpunit.unit.xml.dist
+phpunit.integration.xml.dist
+tests
+vendor
+node_modules
