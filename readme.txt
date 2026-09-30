@@ -99,11 +99,17 @@ several processes in parallel. To disable background processing (photos
 are loaded in the same request) use the
 `nube360_wc_images_in_background` filter returning `false`.
 
-= Can I fill in the customer's tax id (DNI/CUIT) on orders? =
+= How does Nube360 match store customers with its own? =
 
-WooCommerce has no native field for it. If your checkout captures it in a
-custom field, return it from the `nube360_wc_order_tax_id` filter and it
-will be sent to Nube360 with the order.
+The registration form (and My Account > Account details) has a Tax ID
+field. It is required when registering (return `false` from the
+`nube360_wc_tax_id_required` filter to make it optional), validated, and
+saved as digits only in the user meta `nube360_wc_tax_id`. Orders placed by
+that customer send it to Nube360 as `customer.tax_id`, where customers are
+identified by their tax number. If you capture it elsewhere, return it from the
+`nube360_wc_order_tax_id` filter.
+
+Deleting the plugin keeps these saved tax IDs, since they are your customers' data.
 
 == Changelog ==
 

@@ -170,3 +170,19 @@ msgstr ""
 #: nube360-for-woocommerce.php:148
 msgid "Nube360 for WooCommerce requires WooCommerce to be installed and active. The plugin stays inactive until then."
 msgstr ""
+
+#: includes/TaxId.php
+msgid "Please enter your national ID / tax number."
+msgstr ""
+
+#: includes/TaxId.php
+msgid "The national ID / tax number you entered is not valid."
+msgstr ""
+
+#: includes/TaxId.php
+msgid "National ID / tax number"
+msgstr ""
+
+#: includes/TaxId.php
+msgid "Used to match this customer with a Nube360 customer."
+msgstr ""

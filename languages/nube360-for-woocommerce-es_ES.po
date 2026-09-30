@@ -170,3 +170,19 @@ msgstr "El ítem del lote no es válido."
 #: nube360-for-woocommerce.php:148
 msgid "Nube360 for WooCommerce requires WooCommerce to be installed and active. The plugin stays inactive until then."
 msgstr "Nube360 for WooCommerce requiere que WooCommerce esté instalado y activo para funcionar. El plugin permanece inactivo hasta entonces."
+
+#: includes/TaxId.php
+msgid "Please enter your national ID / tax number."
+msgstr "Introduce tu DNI o CUIT."
+
+#: includes/TaxId.php
+msgid "The national ID / tax number you entered is not valid."
+msgstr "El DNI o CUIT introducido no es válido."
+
+#: includes/TaxId.php
+msgid "National ID / tax number"
+msgstr "DNI o CUIT"
+
+#: includes/TaxId.php
+msgid "Used to match this customer with a Nube360 customer."
+msgstr "Se usa para vincular a este cliente con un cliente de Nube360."

@@ -51,9 +51,9 @@ class Orders {
 	 * Shapes the customer/billing data of an order.
 	 *
 	 * "tax_id" (national ID / tax number) is not a native WooCommerce field:
-	 * it is left null unless a custom checkout meta provides it, which we do
-	 * not assume (an extension point via the nube360_wc_order_tax_id
-	 * filter).
+	 * it comes from the one the customer entered when registering (see TaxId),
+	 * and is null for guests. Sites that capture it elsewhere can override it
+	 * with the thenube360_wc_order_tax_id filter.
 	 *
 	 * @param WC_Order $order Order.
 	 *
@@ -68,15 +68,15 @@ class Orders {
 		$address = trim( $order->get_billing_address_1() . ' ' . $order->get_billing_address_2() );
 
 		/**
-		 * Lets the site fill in the customer's tax id (national ID / tax
-		 * number) if it captures it through a custom checkout field
-		 * (checkout fields plugin, etc.), without this plugin having to
-		 * assume which one.
+		 * Lets the site fill in or override the customer's tax ID,
+		 * e.g. if it captures it through a custom checkout field.
 		 *
-		 * @param string|null $tax_id Tax id, null by default.
+		 * @param string|null $tax_id Tax id the customer registered with, null if none.
 		 * @param WC_Order    $order  Order.
 		 */
-		$tax_id = apply_filters( 'nube360_wc_order_tax_id', null, $order );
+		$customer_id = $order->get_customer_id();
+		$registered  = $customer_id ? TaxId::get_for_user( $customer_id ) : '';
+		$tax_id      = apply_filters( 'nube360_wc_order_tax_id', '' !== $registered ? $registered : null, $order );
 
 		return array(
 			'name'     => $name,

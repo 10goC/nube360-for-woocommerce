@@ -11,5 +11,6 @@ composer.lock
 phpunit.unit.xml.dist
 phpunit.integration.xml.dist
 tests
+docs
 vendor
 node_modules

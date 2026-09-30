@@ -117,6 +117,7 @@ final class Plugin {
 		}
 
 		new Images();
+		new TaxId();
 		new RestController();
 		new Webhooks();
 

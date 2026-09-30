@@ -80,8 +80,8 @@ class PluginTest extends TestCase {
 		\Nube360\WooCommerce\activate();
 		\Nube360\WooCommerce\deactivate();
 
-		$this->assertNotFalse( has_action( 'activate_nube360-for-woocommerce/nube360-for-woocommerce.php' ) );
-		$this->assertNotFalse( has_action( 'deactivate_nube360-for-woocommerce/nube360-for-woocommerce.php' ) );
+		$this->assertNotFalse( has_action( 'activate_' . \Nube360\WooCommerce\BASENAME ) );
+		$this->assertNotFalse( has_action( 'deactivate_' . \Nube360\WooCommerce\BASENAME ) );
 	}
 
 	public function test_uninstalling_removes_every_option_the_plugin_saved() {

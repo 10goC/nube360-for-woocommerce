@@ -19,10 +19,11 @@ comments, identifiers, UI strings, API messages, readme). Spanish exists only as
 ```
 nube360-for-woocommerce.php   Bootstrap: namespace, constants, Plugin class, HPOS declaration, hooks
 includes/                     One class per file, PSR-4: Nube360\WooCommerce\Products -> includes/Products.php
-  RestController.php         Routes + the "no echo" guard for requests that modify data
+  RestController.php          Routes + the "no echo" guard for requests that modify data
   Products.php                WooCommerce <-> Nube360 product/variation mapping and CRUD
   Webhooks.php                Outgoing events and the anti-loop guard (suppress/resume)
   Images.php                  Background image download (Action Scheduler)
+  TaxId.php                   Tax ID field: registration form, My Account, user profile (user meta `nube360_wc_tax_id`)
   Orders.php, Categories.php, Auth.php, HttpClient.php, Admin.php
 languages/                    .pot + es_ES/es_AR .po/.mo
 tests/unit, tests/integration

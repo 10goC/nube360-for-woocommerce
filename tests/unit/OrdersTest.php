@@ -29,9 +29,11 @@ class OrdersTest extends TestCase {
 			'full_name'      => 'Ana Perez',
 			'payment_title'  => 'Bank transfer',
 			'payment_method' => 'bacs',
+			'customer_id'    => 0,
 		);
 		$order = Mockery::mock( 'WC_Order' );
 		$order->shouldReceive( 'get_id' )->andReturn( 244 );
+		$order->shouldReceive( 'get_customer_id' )->andReturn( $data['customer_id'] );
 		$order->shouldReceive( 'get_total' )->andReturn( '1776.00' );
 		$order->shouldReceive( 'get_payment_method_title' )->andReturn( $data['payment_title'] );
 		$order->shouldReceive( 'get_payment_method' )->andReturn( $data['payment_method'] );
@@ -116,6 +118,24 @@ class OrdersTest extends TestCase {
 		$result = ( new Orders() )->get( 244 );
 
 		$this->assertSame( '20-12345678-3', $result['customer']['tax_id'] );
+	}
+
+	public function test_the_tax_id_the_customer_registered_with_is_sent() {
+		Functions\when( 'wc_get_order' )->justReturn( $this->order( array(), array( 'customer_id' => 7 ) ) );
+		Functions\expect( 'get_user_meta' )->once()->with( 7, 'nube360_wc_tax_id', true )->andReturn( '20123456783' );
+
+		$result = ( new Orders() )->get( 244 );
+
+		$this->assertSame( '20123456783', $result['customer']['tax_id'] );
+	}
+
+	public function test_a_customer_without_a_registered_tax_id_sends_null() {
+		Functions\when( 'wc_get_order' )->justReturn( $this->order( array(), array( 'customer_id' => 7 ) ) );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$result = ( new Orders() )->get( 244 );
+
+		$this->assertNull( $result['customer']['tax_id'] );
 	}
 
 	public function test_a_line_whose_product_was_deleted_has_a_null_sku() {
