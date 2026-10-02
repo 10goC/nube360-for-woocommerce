@@ -115,6 +115,46 @@ class RestController {
 
 		register_rest_route(
 			$ns,
+			'/categories/(?P<id>\d+)',
+			array(
+				'methods'             => WP_REST_Server::EDITABLE,
+				'callback'            => array( $this, 'put_category' ),
+				'permission_callback' => array( Auth::class, 'check_permission' ),
+			)
+		);
+
+		register_rest_route(
+			$ns,
+			'/brands',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_brands' ),
+					'permission_callback' => array( Auth::class, 'check_permission' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'post_brands' ),
+					'permission_callback' => array( Auth::class, 'check_permission' ),
+					'args'                => array(
+						'name' => array( 'required' => true ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			$ns,
+			'/brands/(?P<id>\d+)',
+			array(
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => array( $this, 'delete_brand' ),
+				'permission_callback' => array( Auth::class, 'check_permission' ),
+			)
+		);
+
+		register_rest_route(
+			$ns,
 			'/products',
 			array(
 				array(
@@ -233,7 +273,75 @@ class RestController {
 
 		$result = $this->categories->find_or_create( $name, $parent_id );
 
+		// Only when the key is present: a request that does not mention the
+		// image must not remove the one the category has.
+		if ( ! is_wp_error( $result ) && null !== $request->get_param( 'image' ) ) {
+			$this->categories->update(
+				$result['id'],
+				array(
+					'image'      => $request->get_param( 'image' ),
+					'image_name' => $request->get_param( 'image_name' ),
+				)
+			);
+		}
+
 		return $this->respond( $result );
+	}
+
+	/**
+	 * PUT /categories/{id}
+	 *
+	 * Body {"name": "...", "image": "<url>"}, any of them: renames the
+	 * category and/or sets its image ("" or null removes it).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function put_category( $request ) {
+		$body = $request->get_json_params();
+
+		return $this->respond( $this->categories->update( (int) $request->get_param( 'id' ), is_array( $body ) ? $body : array() ) );
+	}
+
+	/**
+	 * GET /brands
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_brands() {
+		return new WP_REST_Response( ( new Brands() )->list_all(), 200 );
+	}
+
+	/**
+	 * POST /brands
+	 *
+	 * Body {"name": "...", "image": "<url>", "id": "<term id>"}: with an id
+	 * of an existing brand, renames it; otherwise finds the brand by name or
+	 * creates it. Sets its image ("" or null removes it). Returns {id}.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function post_brands( $request ) {
+		$name  = sanitize_text_field( (string) $request->get_param( 'name' ) );
+		$image = (string) $request->get_param( 'image' );
+
+		return $this->respond( ( new Brands() )->sync( $name, $image, $request->get_param( 'id' ), (string) $request->get_param( 'image_name' ) ) );
+	}
+
+	/**
+	 * DELETE /brands/{id}
+	 *
+	 * The products that had the brand are left without it.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function delete_brand( $request ) {
+		return $this->respond( ( new Brands() )->delete( (int) $request->get_param( 'id' ) ) );
 	}
 
 	/**

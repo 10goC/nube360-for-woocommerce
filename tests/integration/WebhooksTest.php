@@ -195,4 +195,74 @@ class WebhooksTest extends TestCase {
 
 		$this->assertCount( 1, $this->sent_events() );
 	}
+
+	/* ------------------------------------------------------ brands and categories */
+
+	/**
+	 * Runs the queued term events, as WordPress does at the end of the request.
+	 */
+	private function flush_term_events() {
+		foreach ( $GLOBALS['wp_filter']['shutdown']->callbacks[20] ?? array() as $callback ) {
+			if ( is_array( $callback['function'] ) && 'flush_queued' === $callback['function'][1] ) {
+				call_user_func( $callback['function'] );
+			}
+		}
+	}
+
+	private function brand_term() {
+		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			$this->markTestSkipped( 'This WooCommerce has no product_brand taxonomy.' );
+		}
+		return self::factory()->term->create( array( 'taxonomy' => 'product_brand', 'name' => 'Acme' ) );
+	}
+
+	public function test_creating_or_editing_a_brand_notifies_once_at_the_end_of_the_request() {
+		$term_id = $this->brand_term();
+		wp_update_term( $term_id, 'product_brand', array( 'name' => 'Acme Corp' ) );
+		$this->assertSame( array(), $this->sent_events(), 'Nothing is sent before the request ends.' );
+
+		$this->flush_term_events();
+
+		$this->assertSame( array( array( 'event' => 'brand.updated', 'id' => (string) $term_id ) ), $this->sent_events() );
+	}
+
+	public function test_changing_the_image_of_a_brand_or_a_category_notifies() {
+		$brand    = $this->brand_term();
+		$category = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		$this->flush_term_events();
+		$this->erp_requests = array();
+
+		update_term_meta( $brand, 'thumbnail_id', 5 );
+		update_term_meta( $category, 'thumbnail_id', 6 );
+		update_term_meta( $category, 'something_else', 7 );
+		$this->flush_term_events();
+
+		$this->assertSame(
+			array(
+				array( 'event' => 'brand.updated', 'id' => (string) $brand ),
+				array( 'event' => 'category.updated', 'id' => (string) $category ),
+			),
+			$this->sent_events()
+		);
+	}
+
+	public function test_terms_changed_by_an_incoming_nube360_request_do_not_notify() {
+		$this->api_ok( 'POST', '/categories', array( 'name' => 'Shoes', 'image' => 'https://images.test/a.png' ) );
+		if ( taxonomy_exists( 'product_brand' ) ) {
+			$this->api_ok( 'POST', '/brands', array( 'name' => 'Acme' ) );
+		}
+		$this->flush_term_events();
+
+		$this->assertSame( array(), $this->sent_events() );
+	}
+
+	public function test_deleting_a_brand_by_hand_notifies_its_deletion_and_nothing_else_about_it() {
+		$brand = $this->brand_term();
+		update_term_meta( $brand, 'thumbnail_id', 5 );
+
+		wp_delete_term( $brand, 'product_brand' );
+		$this->flush_term_events();
+
+		$this->assertSame( array( array( 'event' => 'brand.deleted', 'id' => (string) $brand ) ), $this->sent_events() );
+	}
 }

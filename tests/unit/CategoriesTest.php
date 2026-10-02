@@ -20,11 +20,12 @@ class CategoriesTest extends TestCase {
 
 	public function test_it_lists_categories_with_string_ids_and_a_null_root_parent() {
 		Functions\expect( 'get_terms' )->once()->andReturn( array( $this->term( 15, 'Clothes' ), $this->term( 16, 'Shirts', 15 ) ) );
+		Functions\when( 'get_term_meta' )->justReturn( '' );
 
 		$this->assertSame(
 			array(
-				array( 'id' => '15', 'name' => 'Clothes', 'parent_id' => null ),
-				array( 'id' => '16', 'name' => 'Shirts', 'parent_id' => '15' ),
+				array( 'id' => '15', 'name' => 'Clothes', 'parent_id' => null, 'image' => null ),
+				array( 'id' => '16', 'name' => 'Shirts', 'parent_id' => '15', 'image' => null ),
 			),
 			( new Categories() )->list_all()
 		);

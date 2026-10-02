@@ -48,6 +48,122 @@ class Webhooks {
 
 		add_action( 'woocommerce_product_set_stock', array( $this, 'notify_stock_updated' ), 10, 1 );
 		add_action( 'woocommerce_variation_set_stock', array( $this, 'notify_stock_updated' ), 10, 1 );
+
+		// Brands and category images, edited by hand in WordPress. The term
+		// itself and its image are saved one after the other, so the events
+		// are queued and sent once, at the end of the request, when both are
+		// already stored (Nube360 reads them back right away).
+		add_action( 'created_' . Brands::TAXONOMY, array( $this, 'queue_brand_updated' ), 10, 1 );
+		add_action( 'edited_' . Brands::TAXONOMY, array( $this, 'queue_brand_updated' ), 10, 1 );
+		add_action( 'edited_' . Categories::TAXONOMY, array( $this, 'queue_category_updated' ), 10, 1 );
+		add_action( 'delete_term', array( $this, 'queue_term_deleted' ), 10, 3 );
+		add_action( 'added_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
+		add_action( 'updated_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
+		add_action( 'deleted_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
+	}
+
+	/**
+	 * Events waiting to be sent at the end of the request, keyed by
+	 * "event:id" so that a term edited several times is notified once.
+	 *
+	 * @var array[]
+	 */
+	private static $queued = array();
+
+	/**
+	 * created_/edited_product_brand hooks.
+	 *
+	 * @param int $term_id Brand term id.
+	 */
+	public function queue_brand_updated( $term_id ) {
+		$this->queue( 'brand.updated', $term_id );
+	}
+
+	/**
+	 * edited_product_cat hook.
+	 *
+	 * @param int $term_id Category term id.
+	 */
+	public function queue_category_updated( $term_id ) {
+		$this->queue( 'category.updated', $term_id );
+	}
+
+	/**
+	 * delete_term hook: a brand was deleted. WordPress has already taken it
+	 * off its products, and Nube360 does the same on its side. Whatever was
+	 * queued for the brand before (its image meta going away, for example)
+	 * is dropped: there is nothing left to read.
+	 *
+	 * @param int    $term_id  Deleted term id.
+	 * @param int    $tt_id    Term taxonomy id, unused.
+	 * @param string $taxonomy Taxonomy.
+	 */
+	public function queue_term_deleted( $term_id, $tt_id, $taxonomy ) {
+		if ( Brands::TAXONOMY !== $taxonomy ) {
+			return;
+		}
+
+		unset( self::$queued[ 'brand.updated:' . $term_id ] );
+		$this->queue( 'brand.deleted', $term_id );
+	}
+
+	/**
+	 * added_/updated_/deleted_term_meta hooks: the image of a brand or of a
+	 * category changed.
+	 *
+	 * @param int|int[] $meta_id Meta id(s), unused.
+	 * @param int       $term_id Term id.
+	 * @param string    $key     Meta key.
+	 */
+	public function queue_term_image_updated( $meta_id, $term_id, $key ) {
+		if ( Brands::THUMBNAIL_META !== $key ) {
+			return;
+		}
+
+		$term = get_term( (int) $term_id );
+
+		if ( ! $term || is_wp_error( $term ) ) {
+			return;
+		}
+
+		if ( Brands::TAXONOMY === $term->taxonomy ) {
+			$this->queue( 'brand.updated', $term_id );
+		} elseif ( Categories::TAXONOMY === $term->taxonomy ) {
+			$this->queue( 'category.updated', $term_id );
+		}
+	}
+
+	/**
+	 * Queues an event to be sent when the request ends.
+	 *
+	 * @param string $event   Event name.
+	 * @param int    $term_id Term id.
+	 */
+	private function queue( $event, $term_id ) {
+		if ( self::is_suppressed() || ! $term_id ) {
+			return;
+		}
+
+		if ( empty( self::$queued ) ) {
+			add_action( 'shutdown', array( $this, 'flush_queued' ), 20 );
+		}
+
+		self::$queued[ $event . ':' . $term_id ] = array(
+			'event' => $event,
+			'id'    => (string) $term_id,
+		);
+	}
+
+	/**
+	 * shutdown hook: sends the queued events.
+	 */
+	public function flush_queued() {
+		$queued       = self::$queued;
+		self::$queued = array();
+
+		foreach ( $queued as $payload ) {
+			$this->notify( $payload );
+		}
 	}
 
 	/**

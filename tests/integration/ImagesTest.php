@@ -263,4 +263,331 @@ class ImagesTest extends TestCase {
 		$this->assertIsInt( $status['pending'] );
 		$this->assertIsInt( $status['failed'] );
 	}
+
+	/* ------------------------------------------------------------- replacing */
+
+	private function ids_of( $product ) {
+		$product = wc_get_product( $product->get_id() );
+		return array_values( array_filter( array_merge( array( $product->get_image_id() ), $product->get_gallery_image_ids() ) ) );
+	}
+
+	private function sources_of( $product ) {
+		return array_map(
+			function ( $id ) {
+				return get_post_meta( $id, '_source_url', true );
+			},
+			$this->ids_of( $product )
+		);
+	}
+
+	public function test_replace_swaps_the_gallery_reusing_what_did_not_change_and_deleting_the_rest() {
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png', 'https://images.test/two.png' ) );
+		$before = $this->ids_of( $product );
+		$this->downloads = array();
+
+		Images::replace( $product->get_id(), array( 'https://images.test/two.png', 'https://images.test/three.png' ) );
+
+		$this->assertSame( array( 'https://images.test/two.png', 'https://images.test/three.png' ), $this->sources_of( $product ) );
+		$this->assertSame( array( 'https://images.test/three.png' ), $this->downloads, 'Only the new image is downloaded.' );
+		$this->assertEquals( $before[1], $this->ids_of( $product )[0], 'The unchanged image is reused.' );
+		$this->assertNull( get_post( $before[0] ), 'The image that is gone is deleted.' );
+	}
+
+	public function test_replace_with_an_empty_list_removes_the_images() {
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		Images::replace( $product->get_id(), array() );
+
+		$this->assertSame( array(), $this->ids_of( $product ) );
+	}
+
+	public function test_replace_with_the_same_list_changes_nothing() {
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+		$this->downloads = array();
+
+		Images::replace( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		$this->assertSame( array(), $this->downloads );
+	}
+
+	public function test_replace_keeps_the_current_images_if_none_of_the_new_ones_downloads() {
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		Images::replace( $product->get_id(), array( 'https://images.test/broken.png' ) );
+
+		$this->assertSame( array( 'https://images.test/one.png' ), $this->sources_of( $product ) );
+	}
+
+	public function test_replace_never_deletes_an_image_it_did_not_download() {
+		$product       = $this->product();
+		$attachment_id = self::factory()->attachment->create_upload_object( DIR_TESTDATA . '/images/canola.jpg' );
+		$product->set_image_id( $attachment_id );
+		$product->save();
+
+		Images::replace( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		$this->assertNotNull( get_post( $attachment_id ) );
+		$this->assertSame( array( 'https://images.test/one.png' ), array_slice( $this->sources_of( $product ), 0, 1 ) );
+	}
+
+	public function test_replace_does_not_notify_nube360() {
+		$product = $this->product();
+
+		Images::replace( $product->get_id(), array( 'https://images.test/one.png' ) );
+		WC_Post_Data::do_deferred_product_sync();
+		Webhooks::resume();
+
+		$this->assertSame( array(), $this->sent_events() );
+	}
+
+	public function test_replace_is_queued_and_the_last_request_wins() {
+		remove_filter( 'nube360_wc_images_in_background', '__return_false' );
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		Images::replace( $product->get_id(), array( 'https://images.test/two.png' ) );
+		Images::replace( $product->get_id(), array( 'https://images.test/three.png' ) );
+
+		$this->assertCount( 1, $this->pending_actions( array( 'hook' => Images::REPLACE_HOOK ) ), 'Repeated changes share one queued action.' );
+		( new Images() )->process_replace( $product->get_id() );
+		$this->assertSame( array( 'https://images.test/three.png' ), $this->sources_of( $product ) );
+	}
+
+	public function test_a_term_image_is_replaced_and_the_old_one_deleted() {
+		$term_id = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+
+		Images::sync_term_image( $term_id, 'https://images.test/a.png' );
+		$first = (int) get_term_meta( $term_id, 'thumbnail_id', true );
+		Images::sync_term_image( $term_id, 'https://images.test/b.png' );
+		$second = (int) get_term_meta( $term_id, 'thumbnail_id', true );
+
+		$this->assertNotSame( $first, $second );
+		$this->assertSame( 'https://images.test/b.png', get_post_meta( $second, '_source_url', true ) );
+		$this->assertNull( get_post( $first ) );
+	}
+
+	public function test_a_term_image_with_the_same_url_is_not_downloaded_again() {
+		$term_id = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		Images::sync_term_image( $term_id, 'https://images.test/a.png' );
+		$this->downloads = array();
+
+		Images::sync_term_image( $term_id, 'https://images.test/a.png' );
+
+		$this->assertSame( array(), $this->downloads );
+	}
+
+	public function test_an_empty_url_removes_a_term_image_that_the_plugin_downloaded() {
+		$term_id = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		Images::sync_term_image( $term_id, 'https://images.test/a.png' );
+		$image = (int) get_term_meta( $term_id, 'thumbnail_id', true );
+
+		Images::sync_term_image( $term_id, '' );
+
+		$this->assertSame( '', (string) get_term_meta( $term_id, 'thumbnail_id', true ) );
+		$this->assertNull( get_post( $image ) );
+	}
+
+	public function test_an_empty_url_leaves_an_image_the_plugin_did_not_download() {
+		$term_id       = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		$attachment_id = self::factory()->attachment->create_upload_object( DIR_TESTDATA . '/images/canola.jpg' );
+		update_term_meta( $term_id, 'thumbnail_id', $attachment_id );
+
+		Images::sync_term_image( $term_id, '' );
+
+		$this->assertSame( $attachment_id, (int) get_term_meta( $term_id, 'thumbnail_id', true ) );
+	}
+
+	public function test_the_api_sets_the_image_of_a_category_and_a_brand() {
+		$category = $this->api_ok( 'POST', '/categories', array( 'name' => 'Shoes', 'image' => 'https://images.test/cat.png' ) );
+		$this->assertNotEmpty( get_term_meta( (int) $category['id'], 'thumbnail_id', true ) );
+
+		$this->api_ok( 'PUT', '/categories/' . $category['id'], array( 'image' => null ) );
+		$this->assertEmpty( get_term_meta( (int) $category['id'], 'thumbnail_id', true ) );
+
+		if ( taxonomy_exists( 'product_brand' ) ) {
+			$brand = $this->api_ok( 'POST', '/brands', array( 'name' => 'Acme', 'image' => 'https://images.test/brand.png' ) );
+			$this->assertSame( 'https://images.test/brand.png', get_post_meta( get_term_meta( (int) $brand['id'], 'thumbnail_id', true ), '_source_url', true ) );
+
+			// Same id, new name and image: the brand is updated, not duplicated.
+			$again = $this->api_ok( 'POST', '/brands', array( 'id' => $brand['id'], 'name' => 'Acme Corp', 'image' => 'https://images.test/brand2.png' ) );
+			$this->assertSame( $brand['id'], $again['id'] );
+			$this->assertSame( 'https://images.test/brand2.png', get_post_meta( get_term_meta( (int) $brand['id'], 'thumbnail_id', true ), '_source_url', true ) );
+			$this->assertSame( 'Acme Corp', $this->api_ok( 'GET', '/brands' )[0]['name'] );
+		}
+
+		$this->assertSame( 404, $this->api( 'PUT', '/categories/999999', array( 'image' => '' ) )->get_status() );
+	}
+
+	public function test_a_request_to_create_a_category_without_image_keeps_its_image() {
+		$category = $this->api_ok( 'POST', '/categories', array( 'name' => 'Shoes', 'image' => 'https://images.test/cat.png' ) );
+
+		$this->api_ok( 'POST', '/categories', array( 'name' => 'Shoes' ) );
+
+		$this->assertNotEmpty( get_term_meta( (int) $category['id'], 'thumbnail_id', true ) );
+	}
+
+	public function test_the_api_replaces_the_gallery_of_a_product() {
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+
+		$this->api_ok( 'PUT', '/products/' . $product->get_id(), array( 'images' => array( array( 'src' => 'https://images.test/two.png' ) ) ) );
+
+		$this->assertSame( array( 'https://images.test/two.png' ), $this->sources_of( $product ) );
+	}
+
+	/* ----------------------------- images uploaded by hand are not duplicated */
+
+	/**
+	 * What Nube360 sends back for an image it took from WordPress: its own
+	 * copy, saved under a hash of the original URL.
+	 */
+	private function erp_copy_of( $attachment_id ) {
+		return 'https://erp.test/assets/uploads/files/' . Images::local_name( wp_get_attachment_url( $attachment_id ) );
+	}
+
+	public function test_replace_recognizes_an_image_uploaded_by_hand_and_does_not_download_it_again() {
+		$product       = $this->product();
+		$attachment_id = self::factory()->attachment->create_upload_object( DIR_TESTDATA . '/images/canola.jpg' );
+		$product->set_image_id( $attachment_id );
+		$product->save();
+		$erp_copy = $this->erp_copy_of( $attachment_id );
+		$this->erp_requests = array();
+
+		Images::replace( $product->get_id(), array( array( 'src' => $erp_copy ), array( 'src' => 'https://images.test/new.png' ) ) );
+
+		$ids = $this->ids_of( $product );
+		$this->assertEquals( $attachment_id, $ids[0], 'The attachment already there is kept in its place.' );
+		$this->assertCount( 2, $ids );
+		$this->assertSame( array( 'https://images.test/new.png' ), $this->downloads, 'Only the new image is downloaded.' );
+		$this->assertSame( array(), $this->erp_requests );
+	}
+
+	public function test_a_term_image_uploaded_by_hand_is_recognized_too() {
+		$term_id       = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		$attachment_id = self::factory()->attachment->create_upload_object( DIR_TESTDATA . '/images/canola.jpg' );
+		update_term_meta( $term_id, 'thumbnail_id', $attachment_id );
+
+		Images::sync_term_image( $term_id, $this->erp_copy_of( $attachment_id ) );
+
+		$this->assertSame( array(), $this->downloads );
+		$this->assertSame( $attachment_id, (int) get_term_meta( $term_id, 'thumbnail_id', true ) );
+		$this->assertNotNull( get_post( $attachment_id ) );
+	}
+
+	public function test_the_local_name_is_a_hash_of_the_url_plus_its_extension() {
+		$this->assertSame( md5( 'https://wp.test/a/b.jpg' ) . '.jpg', Images::local_name( 'https://wp.test/a/b.jpg' ) );
+		$this->assertSame( md5( 'https://wp.test/a/b' ), Images::local_name( 'https://wp.test/a/b' ) );
+	}
+
+	/* ------------------------------------------------------ category name, brand delete */
+
+	public function test_the_api_renames_a_category_without_touching_its_image() {
+		$category = $this->api_ok( 'POST', '/categories', array( 'name' => 'Shoes', 'image' => 'https://images.test/cat.png' ) );
+		$image    = get_term_meta( (int) $category['id'], 'thumbnail_id', true );
+
+		$this->api_ok( 'PUT', '/categories/' . $category['id'], array( 'name' => 'Footwear' ) );
+
+		$this->assertSame( 'Footwear', get_term( (int) $category['id'], 'product_cat' )->name );
+		$this->assertSame( $image, get_term_meta( (int) $category['id'], 'thumbnail_id', true ) );
+	}
+
+	public function test_deleting_a_brand_through_the_api_leaves_its_products_without_brand() {
+		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			$this->markTestSkipped( 'This WooCommerce has no product_brand taxonomy.' );
+		}
+		$brand   = $this->api_ok( 'POST', '/brands', array( 'name' => 'Acme', 'image' => 'https://images.test/brand.png' ) );
+		$product = $this->product();
+		wp_set_object_terms( $product->get_id(), array( (int) $brand['id'] ), 'product_brand' );
+		$image = (int) get_term_meta( (int) $brand['id'], 'thumbnail_id', true );
+
+		$this->api_ok( 'DELETE', '/brands/' . $brand['id'] );
+		foreach ( $GLOBALS['wp_filter']['shutdown']->callbacks[20] ?? array() as $callback ) {
+			if ( is_array( $callback['function'] ) && 'flush_queued' === $callback['function'][1] ) {
+				call_user_func( $callback['function'] );
+			}
+		}
+
+		$this->assertEmpty( term_exists( (int) $brand['id'], 'product_brand' ) );
+		$this->assertSame( array(), wp_get_object_terms( $product->get_id(), 'product_brand' ) );
+		$this->assertNull( get_post( $image ), 'The image the plugin downloaded goes with the brand.' );
+		$this->assertSame( array(), $this->sent_events(), 'A deletion that Nube360 asked for is not echoed back.' );
+		$this->assertSame( 404, $this->api( 'DELETE', '/brands/' . $brand['id'] )->get_status() );
+	}
+
+	/* ------------------------------------------------------------- file names */
+
+	private function file_name_of( $attachment_id ) {
+		return wp_basename( get_attached_file( $attachment_id ) );
+	}
+
+	/**
+	 * WordPress adds a numeric suffix when a file with that name is already in
+	 * the uploads folder (leftovers of earlier runs included).
+	 */
+	private function assertNamed( $expected, $attachment_id ) {
+		$base = preg_quote( pathinfo( $expected, PATHINFO_FILENAME ), '/' );
+		$ext  = preg_quote( pathinfo( $expected, PATHINFO_EXTENSION ), '/' );
+		$this->assertMatchesRegularExpression( "/^{$base}(-\\d+)?\\.{$ext}$/", $this->file_name_of( $attachment_id ) );
+	}
+
+	public function test_an_image_is_saved_under_the_name_nube360_asks_for() {
+		$product = $this->product();
+
+		Images::schedule( $product->get_id(), array( array( 'src' => 'https://images.test/0009c-mug.png', 'name' => 'mug.png' ) ) );
+
+		$ids = $this->ids_of( $product );
+		$this->assertNamed( 'mug.png', $ids[0] );
+		$this->assertSame( 'https://images.test/0009c-mug.png', get_post_meta( $ids[0], '_source_url', true ), 'It is still recognized by the URL it came from.' );
+	}
+
+	public function test_without_a_name_the_image_keeps_the_one_in_its_url() {
+		$product = $this->product();
+
+		Images::schedule( $product->get_id(), array( 'https://images.test/0009c-mug.png' ) );
+
+		$this->assertNamed( '0009c-mug.png', $this->ids_of( $product )[0] );
+	}
+
+	public function test_two_images_with_the_same_name_do_not_overwrite_each_other() {
+		$product = $this->product();
+
+		Images::schedule(
+			$product->get_id(),
+			array(
+				array( 'src' => 'https://images.test/0009c-mug.png', 'name' => 'mug.png' ),
+				array( 'src' => 'https://images.test/1f3a2-mug.png', 'name' => 'mug.png' ),
+			)
+		);
+
+		$ids = $this->ids_of( $product );
+		$this->assertCount( 2, $ids );
+		$this->assertNotSame( $this->file_name_of( $ids[0] ), $this->file_name_of( $ids[1] ) );
+	}
+
+	public function test_the_name_also_applies_when_the_gallery_is_replaced_and_to_term_images() {
+		$product = $this->product();
+		Images::replace( $product->get_id(), array( array( 'src' => 'https://images.test/0009c-a.png', 'name' => 'a.png' ) ) );
+		$this->assertNamed( 'a.png', $this->ids_of( $product )[0] );
+
+		$term_id = self::factory()->term->create( array( 'taxonomy' => 'product_cat', 'name' => 'Shoes' ) );
+		Images::sync_term_image( $term_id, 'https://images.test/0009c-cat.png', 'cat.png' );
+		$this->assertNamed( 'cat.png', (int) get_term_meta( $term_id, 'thumbnail_id', true ) );
+	}
+
+	public function test_the_name_travels_through_the_queue() {
+		$this->enable_background_processing();
+		$product = $this->product();
+
+		Images::schedule( $product->get_id(), array( array( 'src' => 'https://images.test/0009c-mug.png', 'name' => 'mug.png' ) ) );
+
+		$args = array_values( $this->pending_actions() )[0]->get_args();
+		$this->assertCount( 4, $args, 'The names are the fourth argument of the action.' );
+		( new Images() )->process( ...$args );
+
+		$this->assertNamed( 'mug.png', $this->ids_of( $product )[0] );
+	}
 }

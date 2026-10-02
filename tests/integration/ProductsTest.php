@@ -1,6 +1,7 @@
 <?php
 namespace Nube360\WooCommerce\Tests\Integration;
 
+use Nube360\WooCommerce\Brands;
 use Nube360\WooCommerce\Products;
 use WP_Error;
 
@@ -87,6 +88,37 @@ class ProductsTest extends TestCase {
 		$this->assertSame( 'publish', $product->get_status() );
 		$this->assertSame( '<p>Ceramic</p>', $product->get_description() );
 		$this->assertSame( array( $category ), $product->get_category_ids(), 'Ids that are not categories are dropped.' );
+	}
+
+	public function test_it_assigns_the_brands_when_creating_a_product() {
+		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			$this->markTestSkipped( 'This WooCommerce has no product_brand taxonomy.' );
+		}
+		$brand = ( new Brands() )->sync( 'Acme' );
+
+		$result = $this->products->create( $this->simple_body( 'MUG-1', array( 'brands' => array( $brand['id'], '999999' ) ) ) );
+
+		$this->assert_success( $result );
+		$this->assertSame( array( $brand['id'] ), $this->products->get_by_sku( 'MUG-1' )['brands'], 'Ids that are not brands are dropped.' );
+	}
+
+	public function test_the_brands_of_a_family_are_read_on_every_variation() {
+		if ( ! taxonomy_exists( 'product_brand' ) ) {
+			$this->markTestSkipped( 'This WooCommerce has no product_brand taxonomy.' );
+		}
+		$brand = ( new Brands() )->sync( 'Acme' );
+
+		$this->products->create( $this->variant_body( 'SH-RED-M', 'Red', 'M', array( 'brands' => array( $brand['id'] ) ) ) );
+		$this->products->create( $this->variant_body( 'SH-RED-L', 'Red', 'L' ) );
+
+		$this->assertSame( array( $brand['id'] ), $this->products->get_by_sku( 'SH-RED-M' )['brands'] );
+		$this->assertSame( array( $brand['id'] ), $this->products->get_by_sku( 'SH-RED-L' )['brands'] );
+	}
+
+	public function test_a_product_created_without_brands_reads_an_empty_list() {
+		$this->products->create( $this->simple_body( 'MUG-1' ) );
+
+		$this->assertSame( array(), $this->products->get_by_sku( 'MUG-1' )['brands'] );
 	}
 
 	public function test_zero_stock_creates_an_out_of_stock_product() {
@@ -319,6 +351,7 @@ class ProductsTest extends TestCase {
 				'stock'        => 10,
 				// Whatever WooCommerce assigned (its default category, if it exists).
 				'categories'   => array_map( 'strval', wc_get_product( $result['id'] )->get_category_ids() ),
+				'brands'       => array(),
 				'attributes'   => array(),
 				'images'       => array(),
 				'is_family'    => false,

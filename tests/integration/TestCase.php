@@ -106,6 +106,11 @@ abstract class TestCase extends WP_UnitTestCase {
 		$guard->setAccessible( true );
 		$guard->setValue( null, 0 );
 
+		$queued = new ReflectionProperty( Webhooks::class, 'queued' );
+		$queued->setAccessible( true );
+		$queued->setValue( null, array() );
+		remove_all_actions( 'shutdown', 20 );
+
 		$cache = new ReflectionProperty( Products::class, 'families_by_ref' );
 		$cache->setAccessible( true );
 		$cache->setValue( null, array() );

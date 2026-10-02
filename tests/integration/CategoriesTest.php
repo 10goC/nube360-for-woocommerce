@@ -71,8 +71,8 @@ class CategoriesTest extends TestCase {
 			$by_id[ $category['id'] ] = $category;
 		}
 
-		$this->assertSame( array( 'id' => $parent['id'], 'name' => 'Clothes', 'parent_id' => null ), $by_id[ $parent['id'] ] );
-		$this->assertSame( array( 'id' => $child['id'], 'name' => 'Shirts', 'parent_id' => $parent['id'] ), $by_id[ $child['id'] ] );
+		$this->assertSame( array( 'id' => $parent['id'], 'name' => 'Clothes', 'parent_id' => null, 'image' => null ), $by_id[ $parent['id'] ] );
+		$this->assertSame( array( 'id' => $child['id'], 'name' => 'Shirts', 'parent_id' => $parent['id'], 'image' => null ), $by_id[ $child['id'] ] );
 	}
 
 	public function test_empty_categories_are_listed_too() {

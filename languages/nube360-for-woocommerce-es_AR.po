@@ -186,3 +186,29 @@ msgstr "DNI o CUIT"
 #: includes/TaxId.php
 msgid "Used to match this customer with a Nube360 customer."
 msgstr "Se usa para vincular a este cliente con un cliente de Nube360."
+
+#: includes/Brands.php
+msgid "The brand name is required."
+msgstr "El nombre de la marca es obligatorio."
+
+#: includes/Brands.php
+msgid "This store does not support product brands."
+msgstr "Esta tienda no admite marcas de productos."
+
+#: includes/Categories.php
+msgid "The category does not exist."
+msgstr "La categoría indicada no existe."
+
+#. translators: %d: product id
+#: includes/Images.php
+#, php-format
+msgid "No image could be downloaded for product %d."
+msgstr "No se pudo descargar ninguna imagen del producto %d."
+
+#: includes/Brands.php
+msgid "The brand does not exist."
+msgstr "La marca indicada no existe."
+
+#: includes/Brands.php
+msgid "The brand could not be deleted."
+msgstr "No se pudo eliminar la marca."

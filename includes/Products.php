@@ -53,10 +53,19 @@ class Products {
 	private $categories;
 
 	/**
+	 * Brands helper, used to assign brands when creating products and to
+	 * read them back.
+	 *
+	 * @var Brands
+	 */
+	private $brands;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
 		$this->categories = new Categories();
+		$this->brands     = new Brands();
 	}
 
 	/**
@@ -254,10 +263,18 @@ class Products {
 		}
 
 		if ( empty( $family_attributes ) ) {
-			return $this->create_simple_product( $title, $variant, $category_ids, $images, $description );
+			$result = $this->create_simple_product( $title, $variant, $category_ids, $images, $description );
+		} else {
+			$result = $this->create_variable_product( $title, $family_attributes, $variant, $category_ids, $images, $description, $family_ref );
 		}
 
-		return $this->create_variable_product( $title, $family_attributes, $variant, $category_ids, $images, $description, $family_ref );
+		// Like the description and the photos, the brands are family data:
+		// they only arrive in the call that creates the product/family.
+		if ( ! is_wp_error( $result ) && ! empty( $body['brands'] ) ) {
+			$this->brands->assign( absint( $result['id'] ), $this->brands->resolve_ids( $body['brands'] ) );
+		}
+
+		return $result;
 	}
 
 	/**
@@ -755,7 +772,7 @@ class Products {
 	 * variations live). It does not accept the id of a variation.
 	 *
 	 * @param int   $id   Product id (or the family's parent id).
-	 * @param array $body Subset of {title, description}.
+	 * @param array $body Subset of {title, description, images}.
 	 *
 	 * @return array|WP_Error
 	 */
@@ -778,6 +795,12 @@ class Products {
 			$product->save();
 		} catch ( Exception $e ) {
 			return $this->save_error( $e );
+		}
+
+		// The gallery is product (or family) data, like the texts. A list,
+		// even an empty one, replaces the images the product has.
+		if ( array_key_exists( 'images', $body ) && is_array( $body['images'] ) ) {
+			Images::replace( $product->get_id(), $body['images'] );
 		}
 
 		return array( 'success' => true );
@@ -880,6 +903,7 @@ class Products {
 				'sale_price'         => $sale_price,
 				'stock'              => null === $stock ? 0 : (int) $stock,
 				'categories'         => array_map( 'strval', $category_ids ),
+				'brands'             => $this->brands->ids_for_product( $product->get_id() ),
 				'attributes'         => $attributes,
 				'images'             => $images,
 				'is_family'          => true,
@@ -890,6 +914,9 @@ class Products {
 				// WooCommerce).
 				'description'        => null,
 				'family_description' => $product->get_description(),
+				// The gallery of a family lives on the parent, like the texts;
+				// `images` above may be the one of the variation.
+				'family_images'      => $this->get_images( $product ),
 			);
 		}
 
@@ -905,6 +932,7 @@ class Products {
 			'sale_price'   => $sale_price,
 			'stock'        => null === $stock ? 0 : (int) $stock,
 			'categories'   => array_map( 'strval', $category_ids ),
+			'brands'       => $this->brands->ids_for_product( $product->get_id() ),
 			'attributes'   => array(),
 			'images'       => $this->get_images( $product ),
 			'is_family'    => false,
@@ -975,7 +1003,7 @@ class Products {
 
 		$urls = array();
 		foreach ( array_unique( $ids ) as $id ) {
-			$url = wp_get_attachment_image_url( $id, 'full' );
+			$url = Images::origin_url( $id );
 			if ( $url ) {
 				$urls[] = $url;
 			}

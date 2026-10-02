@@ -186,3 +186,29 @@ msgstr ""
 #: includes/TaxId.php
 msgid "Used to match this customer with a Nube360 customer."
 msgstr ""
+
+#: includes/Brands.php
+msgid "The brand name is required."
+msgstr ""
+
+#: includes/Brands.php
+msgid "This store does not support product brands."
+msgstr ""
+
+#: includes/Categories.php
+msgid "The category does not exist."
+msgstr ""
+
+#. translators: %d: product id
+#: includes/Images.php
+#, php-format
+msgid "No image could be downloaded for product %d."
+msgstr ""
+
+#: includes/Brands.php
+msgid "The brand does not exist."
+msgstr ""
+
+#: includes/Brands.php
+msgid "The brand could not be deleted."
+msgstr ""

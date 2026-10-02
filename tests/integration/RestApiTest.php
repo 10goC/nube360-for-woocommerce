@@ -220,7 +220,7 @@ class RestApiTest extends TestCase {
 		foreach ( $this->api_ok( 'GET', '/categories' ) as $category ) {
 			$listed[ $category['id'] ] = $category;
 		}
-		$this->assertSame( array( 'id' => $child['id'], 'name' => 'Shirts', 'parent_id' => $parent['id'] ), $listed[ $child['id'] ] );
+		$this->assertSame( array( 'id' => $child['id'], 'name' => 'Shirts', 'parent_id' => $parent['id'], 'image' => null ), $listed[ $child['id'] ] );
 		$this->assertNull( $listed[ $parent['id'] ]['parent_id'] );
 	}
 
