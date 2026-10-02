@@ -24,6 +24,8 @@ includes/                     One class per file, PSR-4: Nube360\WooCommerce\Pro
   Webhooks.php                Outgoing events and the anti-loop guard (suppress/resume)
   Images.php                  Background image download (Action Scheduler)
   TaxId.php                   Tax ID field: registration form, My Account, user profile (user meta `nube360_wc_tax_id`)
+  Attributes.php              Global attributes (pa_*), their values and groups: find-or-create, GET/PUT /attributes
+  AttributeGroups.php         Taxonomy `nube360_wc_attr_group` (the groups) and its term meta (colour, image)
   Orders.php, Categories.php, Auth.php, HttpClient.php, Admin.php
 languages/                    .pot + es_ES/es_AR .po/.mo
 tests/unit, tests/integration
@@ -52,6 +54,14 @@ tests/unit, tests/integration
   non-GET request until `shutdown`, because WooCommerce syncs the parent of a variable product
   deferred to `shutdown`. Code that changes products outside a REST request (the image job) must call
   `Webhooks::suppress_until_shutdown()` too.
+- Attribute values have a group (`group` in the `values` pairs of a variant and in `/attributes`). Nube360
+  identifies a value by attribute + group + title, so the same title can exist in two groups: each pair is a
+  different term. The slug only has to be unique (variations reference it): `Attributes::slug_for()` gives the
+  plain slug of the title to the first value that asks for it, `title-group` to the next one, then a number; a
+  value is identified by title + group (never by slug) and variations always use the slug of the resolved
+  term, never `sanitize_title(value)`. A group is a term of `nube360_wc_attr_group` with meta
+  `nube360_wc_attribute` (the `pa_*` taxonomy); a value points to it with term meta `_nube360_wc_group_id`. The
+  swatch (colour / image) of a group lives only in WordPress; Nube360 never sends it.
 - Creating products is idempotent by SKU; a family is found by `family_ref` (meta on the parent).
 - Only use WooCommerce CRUD objects (`wc_get_product()`, `wc_get_order()`): the plugin declares HPOS
   compatibility and must not touch `posts`/`postmeta` for orders.

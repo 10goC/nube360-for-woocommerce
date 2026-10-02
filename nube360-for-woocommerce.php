@@ -116,6 +116,7 @@ final class Plugin {
 			return;
 		}
 
+		new AttributeGroups();
 		new Images();
 		new TaxId();
 		new RestController();

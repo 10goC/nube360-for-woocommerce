@@ -212,3 +212,31 @@ msgstr ""
 #: includes/Brands.php
 msgid "The brand could not be deleted."
 msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Attribute groups"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Attribute group"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "All attribute groups"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Add new attribute group"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Edit attribute group"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Search attribute groups"
+msgstr ""
+
+#: includes/Attributes.php
+msgid "There are no attributes to synchronize."
+msgstr ""

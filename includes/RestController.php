@@ -155,6 +155,26 @@ class RestController {
 
 		register_rest_route(
 			$ns,
+			'/attributes',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_attributes' ),
+					'permission_callback' => array( Auth::class, 'check_permission' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'put_attributes' ),
+					'permission_callback' => array( Auth::class, 'check_permission' ),
+					'args'                => array(
+						'attributes' => array( 'required' => true ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			$ns,
 			'/products',
 			array(
 				array(
@@ -342,6 +362,34 @@ class RestController {
 	 */
 	public function delete_brand( $request ) {
 		return $this->respond( ( new Brands() )->delete( (int) $request->get_param( 'id' ) ) );
+	}
+
+	/**
+	 * GET /attributes
+	 *
+	 * Global attributes with their values and the group of each value, and
+	 * the groups with their swatch (colour / image).
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_attributes() {
+		return new WP_REST_Response( array( 'attributes' => ( new Attributes() )->list_all() ), 200 );
+	}
+
+	/**
+	 * PUT /attributes
+	 *
+	 * Body {"attributes": [{"name": "Size", "values": [{"value": "2", "group": "Babies"}]}]}:
+	 * creates the attributes, values and groups that do not exist and puts
+	 * each value in its group (an empty group takes it out of any group).
+	 * Returns the attributes touched, as GET /attributes does.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function put_attributes( $request ) {
+		return $this->respond( ( new Attributes() )->sync( $request->get_param( 'attributes' ) ) );
 	}
 
 	/**

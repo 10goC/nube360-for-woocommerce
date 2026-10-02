@@ -61,11 +61,19 @@ class Products {
 	private $brands;
 
 	/**
+	 * Attributes helper: global attributes, their values and groups.
+	 *
+	 * @var Attributes
+	 */
+	private $attributes;
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
 		$this->categories = new Categories();
 		$this->brands     = new Brands();
+		$this->attributes = new Attributes();
 	}
 
 	/**
@@ -424,24 +432,23 @@ class Products {
 	 * @return array|WP_Error
 	 */
 	private function create_variable_product( $title, $family_attributes, $variant, $category_ids, $images, $description = '', $family_ref = '' ) {
-		$values_by_attribute = $this->extract_values( $variant );
+		$resolved = $this->attributes->resolve( $this->extract_values( $variant ) );
+		if ( is_wp_error( $resolved ) ) {
+			return $resolved;
+		}
 
 		$wc_attributes = array();
 
 		foreach ( $family_attributes as $attr_name ) {
-			$taxonomy = $this->ensure_global_attribute( $attr_name );
+			$taxonomy = $this->attributes->ensure_attribute( $attr_name );
 			if ( is_wp_error( $taxonomy ) ) {
 				return $taxonomy;
 			}
 
 			$options = array();
 
-			if ( isset( $values_by_attribute[ $attr_name ] ) ) {
-				$term_id = $this->ensure_term( $taxonomy, $values_by_attribute[ $attr_name ] );
-				if ( is_wp_error( $term_id ) ) {
-					return $term_id;
-				}
-				$options[] = $term_id;
+			if ( isset( $resolved[ $attr_name ] ) ) {
+				$options[] = $resolved[ $attr_name ]['term']->term_id;
 			}
 
 			$wc_attr = new WC_Product_Attribute();
@@ -485,7 +492,7 @@ class Products {
 
 		Images::schedule( $product_id, $images );
 
-		$variation_id = $this->create_variation( $product_id, $variant, $values_by_attribute );
+		$variation_id = $this->create_variation( $product_id, $variant, $resolved );
 		if ( is_wp_error( $variation_id ) ) {
 			return $variation_id;
 		}
@@ -516,14 +523,17 @@ class Products {
 			);
 		}
 
-		$values_by_attribute = $this->extract_values( $variant );
+		$resolved = $this->attributes->resolve( $this->extract_values( $variant ) );
+		if ( is_wp_error( $resolved ) ) {
+			return $resolved;
+		}
 
-		$result = $this->ensure_product_attributes( $parent, $values_by_attribute );
+		$result = $this->ensure_product_attributes( $parent, $resolved );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
 
-		$variation_id = $this->create_variation( $parent_id, $variant, $values_by_attribute );
+		$variation_id = $this->create_variation( $parent_id, $variant, $resolved );
 		if ( is_wp_error( $variation_id ) ) {
 			return $variation_id;
 		}
@@ -536,7 +546,8 @@ class Products {
 	}
 
 	/**
-	 * Extracts the {attribute name => value} map from the variant body.
+	 * Extracts the {attribute name => {value, group}} map from the variant
+	 * body. The group is an empty string when the value has none.
 	 *
 	 * @param array $variant Variant data.
 	 *
@@ -553,7 +564,10 @@ class Products {
 			if ( ! isset( $pair['attribute'], $pair['value'] ) ) {
 				continue;
 			}
-			$values[ sanitize_text_field( $pair['attribute'] ) ] = sanitize_text_field( $pair['value'] );
+			$values[ sanitize_text_field( $pair['attribute'] ) ] = array(
+				'value' => sanitize_text_field( $pair['value'] ),
+				'group' => isset( $pair['group'] ) ? sanitize_text_field( (string) $pair['group'] ) : '',
+			);
 		}
 
 		return $values;
@@ -561,15 +575,16 @@ class Products {
 
 	/**
 	 * Makes sure the parent product has, among its attributes, each
-	 * attribute/term used by a new variant (creating the global attribute
-	 * and/or the term if needed), and saves the parent if it changed.
+	 * attribute/term used by a new variant, and saves the parent if it
+	 * changed.
 	 *
-	 * @param WC_Product_Variable $parent              Parent product.
-	 * @param array               $values_by_attribute {attribute => value} map.
+	 * @param WC_Product_Variable $parent   Parent product.
+	 * @param array               $resolved {attribute name => {taxonomy, term}} map
+	 *                                      (see Attributes::resolve()).
 	 *
 	 * @return true|WP_Error
 	 */
-	private function ensure_product_attributes( $parent, $values_by_attribute ) {
+	private function ensure_product_attributes( $parent, $resolved ) {
 		// get_attributes() IS indexed by sanitize_title(taxonomy)
 		// (WC_Product::set_attributes() reindexes it that way on save), but
 		// there is a different and subtler trap: if you mutate the EXISTING
@@ -587,16 +602,9 @@ class Products {
 		$attributes = $parent->get_attributes();
 		$changed    = false;
 
-		foreach ( $values_by_attribute as $attr_name => $value ) {
-			$taxonomy = $this->ensure_global_attribute( $attr_name );
-			if ( is_wp_error( $taxonomy ) ) {
-				return $taxonomy;
-			}
-
-			$term_id = $this->ensure_term( $taxonomy, $value );
-			if ( is_wp_error( $term_id ) ) {
-				return $term_id;
-			}
+		foreach ( $resolved as $entry ) {
+			$taxonomy = $entry['taxonomy'];
+			$term_id  = $entry['term']->term_id;
 
 			$existing_attribute = null;
 			foreach ( $attributes as $attribute ) {
@@ -658,20 +666,19 @@ class Products {
 	 *
 	 * @param int   $parent_id           Parent product id.
 	 * @param array $variant             Variant data (sku, price, stock).
-	 * @param array $values_by_attribute Already-resolved {attribute => value} map.
+	 * @param array $resolved    Resolved {attribute name => {taxonomy, term}} map.
 	 *
 	 * @return int|WP_Error Id of the created variation.
 	 */
-	private function create_variation( $parent_id, $variant, $values_by_attribute ) {
+	private function create_variation( $parent_id, $variant, $resolved ) {
 		$variation = new WC_Product_Variation();
 		$variation->set_parent_id( $parent_id );
 
 		$this->apply_price_and_stock( $variation, $variant );
 
 		$variation_attributes = array();
-		foreach ( $values_by_attribute as $attr_name => $value ) {
-			$taxonomy                          = wc_attribute_taxonomy_name( wc_sanitize_taxonomy_name( $attr_name ) );
-			$variation_attributes[ $taxonomy ] = sanitize_title( $value );
+		foreach ( $resolved as $entry ) {
+			$variation_attributes[ $entry['taxonomy'] ] = $entry['term']->slug;
 		}
 		$variation->set_attributes( $variation_attributes );
 
@@ -962,9 +969,11 @@ class Products {
 				$label          = wc_attribute_label( $key );
 				$term           = get_term_by( 'slug', $value, $key );
 				$readable_value = $term && ! is_wp_error( $term ) ? $term->name : $value;
+				$group          = $term && ! is_wp_error( $term ) ? $this->attributes->term_group_name( $term->term_id ) : '';
 			} else {
 				$label          = $key;
 				$readable_value = $value;
+				$group          = '';
 				foreach ( $parent->get_attributes() as $attr ) {
 					if ( ! $attr->is_taxonomy() && sanitize_title( $attr->get_name() ) === $key ) {
 						$label = $attr->get_name();
@@ -973,10 +982,14 @@ class Products {
 				}
 			}
 
-			$result[] = array(
+			$pair = array(
 				'attribute' => $label,
 				'value'     => $readable_value,
 			);
+			if ( '' !== $group ) {
+				$pair['group'] = $group;
+			}
+			$result[] = $pair;
 		}
 
 		return $result;
@@ -1010,91 +1023,6 @@ class Products {
 		}
 
 		return $urls;
-	}
-
-	/**
-	 * Makes sure the global attribute (pa_{slug} taxonomy) exists for an
-	 * attribute name, creating it in WooCommerce if needed, and leaves it
-	 * registered as a taxonomy so it can be used within the same request.
-	 *
-	 * @param string $name Visible attribute name (e.g. "Color").
-	 *
-	 * @return string|WP_Error Taxonomy name (e.g. "pa_color").
-	 */
-	private function ensure_global_attribute( $name ) {
-		$slug     = wc_sanitize_taxonomy_name( $name );
-		$taxonomy = wc_attribute_taxonomy_name( $slug );
-
-		if ( taxonomy_exists( $taxonomy ) ) {
-			return $taxonomy;
-		}
-
-		$attribute_id = wc_attribute_taxonomy_id_by_name( $taxonomy );
-
-		if ( ! $attribute_id ) {
-			$attribute_id = wc_create_attribute(
-				array(
-					'name'         => $name,
-					'slug'         => $slug,
-					'type'         => 'select',
-					'order_by'     => 'menu_order',
-					'has_archives' => false,
-				)
-			);
-
-			if ( is_wp_error( $attribute_id ) ) {
-				return $attribute_id;
-			}
-		}
-
-		// WooCommerce only registers the taxonomy on the next request (init
-		// hook); we register it now so it can be used right away.
-		register_taxonomy(
-			$taxonomy,
-			apply_filters( 'woocommerce_taxonomy_objects_' . $taxonomy, array( 'product' ) ),
-			apply_filters(
-				'woocommerce_taxonomy_args_' . $taxonomy,
-				array(
-					'labels'       => array( 'name' => $name ),
-					'hierarchical' => true,
-					'show_ui'      => false,
-					'query_var'    => true,
-					'rewrite'      => false,
-				)
-			)
-		);
-
-		delete_transient( 'wc_attribute_taxonomies' );
-
-		return $taxonomy;
-	}
-
-	/**
-	 * Makes sure a term (value) exists within an attribute taxonomy,
-	 * creating it if needed.
-	 *
-	 * @param string $taxonomy Taxonomy (e.g. "pa_color").
-	 * @param string $value    Term value/name (e.g. "Red").
-	 *
-	 * @return int|WP_Error Term id.
-	 */
-	private function ensure_term( $taxonomy, $value ) {
-		$existing = get_term_by( 'name', $value, $taxonomy );
-
-		if ( $existing && ! is_wp_error( $existing ) ) {
-			return (int) $existing->term_id;
-		}
-
-		$result = wp_insert_term( $value, $taxonomy );
-
-		if ( is_wp_error( $result ) ) {
-			if ( 'term_exists' === $result->get_error_code() && $result->get_error_data() ) {
-				return (int) $result->get_error_data();
-			}
-			return $result;
-		}
-
-		return (int) $result['term_id'];
 	}
 
 	/**

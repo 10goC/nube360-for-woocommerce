@@ -147,7 +147,7 @@ class ProductsTest extends TestCase {
 				array(
 					'values' => array(
 						array( 'attribute' => 'Color', 'value' => 'Red' ),
-						array( 'attribute' => 'Size', 'value' => 'M' ),
+						array( 'attribute' => 'Size', 'value' => 'M', 'group' => 'Babies' ),
 						array( 'attribute' => 'Broken' ),
 						array( 'value' => 'orphan' ),
 					),
@@ -155,7 +155,13 @@ class ProductsTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( array( 'Color' => 'Red', 'Size' => 'M' ), $values );
+		$this->assertSame(
+			array(
+				'Color' => array( 'value' => 'Red', 'group' => '' ),
+				'Size'  => array( 'value' => 'M', 'group' => 'Babies' ),
+			),
+			$values
+		);
 	}
 
 	public function test_a_variant_without_values_has_no_attributes() {

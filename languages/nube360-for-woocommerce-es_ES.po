@@ -212,3 +212,31 @@ msgstr "La marca indicada no existe."
 #: includes/Brands.php
 msgid "The brand could not be deleted."
 msgstr "No se pudo eliminar la marca."
+
+#: includes/AttributeGroups.php
+msgid "Attribute groups"
+msgstr "Grupos de atributos"
+
+#: includes/AttributeGroups.php
+msgid "Attribute group"
+msgstr "Grupo de atributos"
+
+#: includes/AttributeGroups.php
+msgid "All attribute groups"
+msgstr "Todos los grupos de atributos"
+
+#: includes/AttributeGroups.php
+msgid "Add new attribute group"
+msgstr "Añadir nuevo grupo de atributos"
+
+#: includes/AttributeGroups.php
+msgid "Edit attribute group"
+msgstr "Editar grupo de atributos"
+
+#: includes/AttributeGroups.php
+msgid "Search attribute groups"
+msgstr "Buscar grupos de atributos"
+
+#: includes/Attributes.php
+msgid "There are no attributes to synchronize."
+msgstr "No hay atributos para sincronizar."

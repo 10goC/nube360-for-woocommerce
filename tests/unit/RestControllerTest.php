@@ -66,6 +66,7 @@ class RestControllerTest extends TestCase {
 				'nube360/v1/categories/(?P<id>\d+)'                         => array( 'POST, PUT, PATCH' ),
 				'nube360/v1/brands'                                         => array( 'GET', 'POST' ),
 				'nube360/v1/brands/(?P<id>\d+)'                             => array( 'DELETE' ),
+				'nube360/v1/attributes'                                     => array( 'GET', 'POST, PUT, PATCH' ),
 				'nube360/v1/products'                                       => array( 'GET', 'POST' ),
 				'nube360/v1/products/batch'                                 => array( 'POST' ),
 				'nube360/v1/products/sku/(?P<sku>.+)'                       => array( 'GET' ),
