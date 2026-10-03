@@ -158,7 +158,7 @@ class Images {
 			throw new Exception(
 				sprintf(
 					/* translators: %d: product id */
-					__( 'No image could be downloaded for product %d.', 'nube360-for-woocommerce' ),
+					esc_html__( 'No image could be downloaded for product %d.', 'nube360-for-woocommerce' ),
 					(int) $product_id
 				)
 			);
@@ -468,9 +468,9 @@ class Images {
 		throw new Exception(
 			sprintf(
 				/* translators: 1: product id, 2: number of attempts */
-				__( 'No image could be downloaded for product %1$d after %2$d attempts.', 'nube360-for-woocommerce' ),
-				$product_id,
-				self::MAX_ATTEMPTS
+				esc_html__( 'No image could be downloaded for product %1$d after %2$d attempts.', 'nube360-for-woocommerce' ),
+				(int) $product_id,
+				(int) self::MAX_ATTEMPTS
 			)
 		);
 	}

@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<ruleset name="Nube360 for WooCommerce" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+	<description>WordPress coding standards for the Nube360 for WooCommerce plugin.</description>
+
+	<!-- What to check. vendor/ and the translations are not ours. -->
+	<file>.</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/languages/*</exclude-pattern>
+	<exclude-pattern>*/docs/*</exclude-pattern>
+	<!-- Only the code that ships is linted: the tests are not part of the plugin. -->
+	<exclude-pattern>*/tests/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="basepath" value="."/>
+	<arg name="parallel" value="8"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<!-- The same versions the plugin declares (readme.txt, plugin header). -->
+	<config name="minimum_wp_version" value="5.8"/>
+	<config name="testVersion" value="7.4-"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="nube360-for-woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="Nube360\WooCommerce"/>
+				<element value="nube360"/>
+				<element value="nube360_wc"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Classes are PSR-4 autoloaded: includes/Products.php, not class-products.php. -->
+	<rule ref="WordPress.Files.FileName.InvalidClassFileName">
+		<exclude-pattern>*/includes/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Files.FileName.NotHyphenatedLowercase">
+		<exclude-pattern>*/includes/*</exclude-pattern>
+	</rule>
+
+</ruleset>

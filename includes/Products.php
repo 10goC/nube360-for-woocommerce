@@ -248,9 +248,9 @@ class Products {
 		// has no separate "family" concept), it only arrives in the call that
 		// creates the product/family for the first time — Nube360 does not
 		// resend it when adding another variant to an existing family.
-		$description  = isset( $body['description'] ) ? wp_kses_post( $body['description'] ) : '';
-		$existing_id  = isset( $body['id'] ) ? absint( $body['id'] ) : 0;
-		$family_ref   = isset( $body['family_ref'] ) ? sanitize_text_field( (string) $body['family_ref'] ) : '';
+		$description = isset( $body['description'] ) ? wp_kses_post( $body['description'] ) : '';
+		$existing_id = isset( $body['id'] ) ? absint( $body['id'] ) : 0;
+		$family_ref  = isset( $body['family_ref'] ) ? sanitize_text_field( (string) $body['family_ref'] ) : '';
 
 		if ( ! $existing_id && '' !== $family_ref ) {
 			$existing_id = $this->find_family_by_ref( $family_ref );
@@ -578,13 +578,13 @@ class Products {
 	 * attribute/term used by a new variant, and saves the parent if it
 	 * changed.
 	 *
-	 * @param WC_Product_Variable $parent   Parent product.
+	 * @param WC_Product_Variable $parent_product Parent product.
 	 * @param array               $resolved {attribute name => {taxonomy, term}} map
 	 *                                      (see Attributes::resolve()).
 	 *
 	 * @return true|WP_Error
 	 */
-	private function ensure_product_attributes( $parent, $resolved ) {
+	private function ensure_product_attributes( $parent_product, $resolved ) {
 		// get_attributes() IS indexed by sanitize_title(taxonomy)
 		// (WC_Product::set_attributes() reindexes it that way on save), but
 		// there is a different and subtler trap: if you mutate the EXISTING
@@ -599,7 +599,7 @@ class Products {
 		// array built from scratch) and the following ones did not: a NEW
 		// WC_Product_Attribute has to be built for the entry being updated,
 		// never mutating the one that was already there.
-		$attributes = $parent->get_attributes();
+		$attributes = $parent_product->get_attributes();
 		$changed    = false;
 
 		foreach ( $resolved as $entry ) {
@@ -631,7 +631,7 @@ class Products {
 						},
 						$attributes
 					);
-					$changed = true;
+					$changed    = true;
 				}
 			} else {
 				$wc_attr = new WC_Product_Attribute();
@@ -647,10 +647,10 @@ class Products {
 		}
 
 		if ( $changed ) {
-			$parent->set_attributes( array_values( $attributes ) );
+			$parent_product->set_attributes( array_values( $attributes ) );
 			Webhooks::suppress();
 			try {
-				$parent->save();
+				$parent_product->save();
 			} catch ( Exception $e ) {
 				return $this->save_error( $e );
 			} finally {
@@ -952,12 +952,12 @@ class Products {
 	 * Resolves the {attribute, value} pairs of a specific variation,
 	 * translating pa_* taxonomy slugs into readable names/labels.
 	 *
-	 * @param WC_Product_Variation $variation Variation.
-	 * @param WC_Product           $parent    Parent product.
+	 * @param WC_Product_Variation $variation      Variation.
+	 * @param WC_Product           $parent_product Parent product.
 	 *
 	 * @return array[]
 	 */
-	private function resolve_variation_attributes( $variation, $parent ) {
+	private function resolve_variation_attributes( $variation, $parent_product ) {
 		$result = array();
 
 		foreach ( $variation->get_attributes() as $key => $value ) {
@@ -974,7 +974,7 @@ class Products {
 				$label          = $key;
 				$readable_value = $value;
 				$group          = '';
-				foreach ( $parent->get_attributes() as $attr ) {
+				foreach ( $parent_product->get_attributes() as $attr ) {
 					if ( ! $attr->is_taxonomy() && sanitize_title( $attr->get_name() ) === $key ) {
 						$label = $attr->get_name();
 						break;

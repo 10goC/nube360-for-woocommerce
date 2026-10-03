@@ -10,6 +10,8 @@ composer.json
 composer.lock
 phpunit.unit.xml.dist
 phpunit.integration.xml.dist
+phpcs.xml.dist
+phpcs.xml
 tests
 docs
 vendor

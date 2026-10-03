@@ -7,17 +7,25 @@
 		"php": ">=7.4"
 	},
 	"require-dev": {
-		"phpunit/phpunit": "^9.6",
 		"brain/monkey": "^2.6",
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.2",
 		"mockery/mockery": "^1.6",
-		"yoast/phpunit-polyfills": "^2.0 || ^3.0 || ^4.0",
-		"wp-phpunit/wp-phpunit": "*"
+		"php-stubs/woocommerce-stubs": "^11.1",
+		"php-stubs/wordpress-stubs": "^7.1",
+		"phpcompatibility/phpcompatibility-wp": "^2.1",
+		"phpunit/phpunit": "^9.6",
+		"wp-coding-standards/wpcs": "^3.4",
+		"wp-phpunit/wp-phpunit": "*",
+		"yoast/phpunit-polyfills": "^2.0 || ^3.0 || ^4.0"
 	},
 	"config": {
 		"platform": {
 			"php": "7.4.33"
 		},
-		"sort-packages": true
+		"sort-packages": true,
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
 	},
 	"scripts": {
 		"test": [
@@ -25,11 +33,15 @@
 			"@test:integration"
 		],
 		"test:unit": "phpunit -c phpunit.unit.xml.dist",
-		"test:integration": "phpunit -c phpunit.integration.xml.dist"
+		"test:integration": "phpunit -c phpunit.integration.xml.dist",
+		"lint": "phpcs",
+		"lint:fix": "phpcbf"
 	},
 	"scripts-descriptions": {
 		"test": "Runs the unit and integration suites.",
 		"test:unit": "Unit tests: no WordPress, no database.",
-		"test:integration": "Integration tests: real WordPress + WooCommerce on a dedicated test database (see AGENTS.md)."
+		"test:integration": "Integration tests: real WordPress + WooCommerce on a dedicated test database (see AGENTS.md).",
+		"lint": "WordPress coding standards (PHPCS, see phpcs.xml.dist).",
+		"lint:fix": "Fixes automatically what PHPCBF can. Review the diff before committing."
 	}
 }

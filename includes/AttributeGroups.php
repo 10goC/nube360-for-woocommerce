@@ -260,7 +260,7 @@ class AttributeGroups {
 		$term     = get_term( $term_id );
 		$group_id = isset( $_POST['nube360_wc_group_id'] ) ? absint( $_POST['nube360_wc_group_id'] ) : 0;
 
-		if ( $group_id && $term && ! is_wp_error( $term ) && $term->taxonomy === get_term_meta( $group_id, self::META_ATTRIBUTE, true ) ) {
+		if ( $group_id && $term && ! is_wp_error( $term ) && get_term_meta( $group_id, self::META_ATTRIBUTE, true ) === $term->taxonomy ) {
 			update_term_meta( $term_id, self::META_TERM_GROUP, $group_id );
 		} else {
 			delete_term_meta( $term_id, self::META_TERM_GROUP );
@@ -328,21 +328,21 @@ class AttributeGroups {
 	 *
 	 * @param array  $columns Columns.
 	 * @param string $after   Key to insert after (appended at the end if missing).
-	 * @param array  $new     Columns to insert.
+	 * @param array  $added   Columns to insert.
 	 *
 	 * @return array
 	 */
-	private function insert_after( $columns, $after, $new ) {
+	private function insert_after( $columns, $after, $added ) {
 		$result = array();
 		foreach ( $columns as $key => $label ) {
 			$result[ $key ] = $label;
 			if ( $key === $after ) {
-				$result = array_merge( $result, $new );
-				$new    = array();
+				$result = array_merge( $result, $added );
+				$added  = array();
 			}
 		}
 
-		return array_merge( $result, $new );
+		return array_merge( $result, $added );
 	}
 
 	/**

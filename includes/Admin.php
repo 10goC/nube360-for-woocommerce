@@ -104,7 +104,8 @@ class Admin {
 		$api_key = get_option( 'nube360_api_key', '' );
 
 		if ( $is_save ) {
-			$url     = isset( $_POST['nube360_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['nube360_url'] ) ) ) : '';
+			// esc_url_raw() is the sanitizer; trim() goes first because esc_url() only left-trims and would turn a trailing space into %20.
+			$url     = isset( $_POST['nube360_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['nube360_url'] ) ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			$api_key = isset( $_POST['nube360_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['nube360_api_key'] ) ) : '';
 
 			update_option( 'nube360_url', untrailingslashit( $url ) );
@@ -123,7 +124,7 @@ class Admin {
 
 		$redirect = add_query_arg(
 			array(
-				'page'         => self::PAGE_SLUG,
+				'page'       => self::PAGE_SLUG,
 				'nube360_wc' => $status,
 			),
 			admin_url( 'options-general.php' )

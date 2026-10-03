@@ -17,7 +17,8 @@ comments, identifiers, UI strings, API messages, readme). Spanish exists only as
 ## Layout
 
 ```
-nube360-for-woocommerce.php   Bootstrap: namespace, constants, Plugin class, HPOS declaration, hooks
+nube360-for-woocommerce.php   Bootstrap: namespace, constants, autoloader, HPOS declaration, (de)activation hooks
+includes/Plugin.php           The Plugin class: boots every other class once WooCommerce is known to be active
 includes/                     One class per file, PSR-4: Nube360\WooCommerce\Products -> includes/Products.php
   RestController.php          Routes + the "no echo" guard for requests that modify data
   Products.php                WooCommerce <-> Nube360 product/variation mapping and CRUD
@@ -120,6 +121,20 @@ Conventions:
 
 Not covered by tests: `Admin::process_form()` (it redirects and exits), the real Action Scheduler
 queue runner, and actual image processing with a non-GD editor.
+
+## Coding standard
+
+The code follows the WordPress coding standards (long `array()` syntax, tabs, Yoda conditions, escaping), checked
+with PHPCS against `phpcs.xml.dist`; only the code that ships is linted, not `tests/`.
+
+```bash
+composer lint        # phpcs
+composer lint:fix    # phpcbf: review the diff before committing, it rewrites whole files
+```
+
+In VS Code, install the recommended extension "PHP Sniffer" (`.vscode/` is not versioned, so the settings are
+local: `phpSniffer.executablesFolder` points to `vendor/bin/`). Some older code still has violations (mostly
+docblocks); do not mix a mass fix with a feature.
 
 ## Translations
 

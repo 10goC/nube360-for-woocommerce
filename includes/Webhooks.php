@@ -77,7 +77,7 @@ class Webhooks {
 	private static $group_names = array();
 
 	/**
-	 * edit_terms hook (before the update): remembers the name of a group.
+	 * The edit_terms hook (before the update): remembers the name of a group.
 	 *
 	 * @param int    $term_id  Term id.
 	 * @param string $taxonomy Taxonomy.
@@ -94,7 +94,7 @@ class Webhooks {
 	}
 
 	/**
-	 * edited_ hook of the groups: if the name changed, every value of the
+	 * The edited_ hook of the groups: if the name changed, every value of the
 	 * group has a new group name. Editing only the swatch notifies nothing.
 	 *
 	 * @param int $group_id Group term id.
@@ -113,7 +113,7 @@ class Webhooks {
 	}
 
 	/**
-	 * pre_delete_term hook: deleting a group leaves its values without
+	 * The pre_delete_term hook: deleting a group leaves its values without
 	 * group, so each of them is notified (once the group is gone, nothing
 	 * would say which values it had).
 	 *
@@ -139,7 +139,7 @@ class Webhooks {
 	private static $queued = array();
 
 	/**
-	 * created_/edited_product_brand hooks.
+	 * The created_/edited_product_brand hooks.
 	 *
 	 * @param int $term_id Brand term id.
 	 */
@@ -148,7 +148,7 @@ class Webhooks {
 	}
 
 	/**
-	 * edited_product_cat hook.
+	 * The edited_product_cat hook.
 	 *
 	 * @param int $term_id Category term id.
 	 */
@@ -157,7 +157,7 @@ class Webhooks {
 	}
 
 	/**
-	 * delete_term hook: a brand was deleted. WordPress has already taken it
+	 * The delete_term hook: a brand was deleted. WordPress has already taken it
 	 * off its products, and Nube360 does the same on its side. Whatever was
 	 * queued for the brand before (its image meta going away, for example)
 	 * is dropped: there is nothing left to read.
@@ -176,7 +176,7 @@ class Webhooks {
 	}
 
 	/**
-	 * added_/updated_/deleted_term_meta hooks: the image of a brand or of a
+	 * The added_/updated_/deleted_term_meta hooks: the image of a brand or of a
 	 * category changed, or the group of an attribute value.
 	 *
 	 * @param int|int[] $meta_id Meta id(s), unused.
@@ -228,7 +228,7 @@ class Webhooks {
 	}
 
 	/**
-	 * shutdown hook: sends the queued events.
+	 * The shutdown hook: sends the queued events.
 	 */
 	public function flush_queued() {
 		$queued       = self::$queued;
@@ -245,7 +245,7 @@ class Webhooks {
 	 * nesting (counter).
 	 */
 	public static function suppress() {
-		self::$suppressed++;
+		++self::$suppressed;
 	}
 
 	/**
@@ -280,7 +280,7 @@ class Webhooks {
 	}
 
 	/**
-	 * woocommerce_checkout_order_processed hook: notifies "order.created".
+	 * The woocommerce_checkout_order_processed hook: notifies "order.created".
 	 *
 	 * @param int $order_id Id of the newly created order.
 	 */
@@ -298,7 +298,7 @@ class Webhooks {
 	}
 
 	/**
-	 * woocommerce_update_product / woocommerce_update_product_variation
+	 * The woocommerce_update_product / woocommerce_update_product_variation
 	 * hooks: notifies "product.updated".
 	 *
 	 * @param int $product_id Id of the edited product or variation.
@@ -316,7 +316,7 @@ class Webhooks {
 	}
 
 	/**
-	 * woocommerce_product_set_stock / woocommerce_variation_set_stock hooks:
+	 * The woocommerce_product_set_stock / woocommerce_variation_set_stock hooks:
 	 * notifies "stock.updated". Both hooks pass the full WC_Product object,
 	 * not just the id.
 	 *

@@ -2,3 +2,5 @@
 vendor/
 .phpunit.result.cache
 tests/integration/wp-tests-config.php
+# Override local del ruleset (se versiona phpcs.xml.dist)
+phpcs.xml

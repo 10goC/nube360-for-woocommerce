@@ -81,8 +81,8 @@ class HttpClient {
 	/**
 	 * Runs the request (POST or another method with a body).
 	 *
-	 * @param string $method   HTTP method.
-	 * @param string $endpoint Path or absolute URL.
+	 * @param string     $method   HTTP method.
+	 * @param string     $endpoint Path or absolute URL.
 	 * @param array|null $body Body to serialize to JSON, or null.
 	 *
 	 * @return array See post().

@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Auth {
 
 	/**
-	 * permission_callback for register_rest_route(): validates the
+	 * The permission_callback for register_rest_route(): validates the
 	 * Authorization: Bearer <key> header of the incoming request against the
 	 * stored key, using hash_equals() to avoid timing attacks.
 	 *

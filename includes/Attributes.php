@@ -64,9 +64,9 @@ class Attributes {
 		// hook); we register it now so it can be used right away.
 		register_taxonomy(
 			$taxonomy,
-			apply_filters( 'woocommerce_taxonomy_objects_' . $taxonomy, array( 'product' ) ),
+			apply_filters( 'woocommerce_taxonomy_objects_' . $taxonomy, array( 'product' ) ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook.
 			apply_filters(
-				'woocommerce_taxonomy_args_' . $taxonomy,
+				'woocommerce_taxonomy_args_' . $taxonomy, // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own hook.
 				array(
 					'labels'       => array( 'name' => $name ),
 					'hierarchical' => true,
@@ -181,7 +181,13 @@ class Attributes {
 			}
 		}
 
-		return wp_unique_term_slug( $slug, (object) array( 'taxonomy' => $taxonomy, 'parent' => 0 ) );
+		return wp_unique_term_slug(
+			$slug,
+			(object) array(
+				'taxonomy' => $taxonomy,
+				'parent'   => 0,
+			)
+		);
 	}
 
 	/**
@@ -246,7 +252,13 @@ class Attributes {
 			return $found;
 		}
 
-		$slug   = wp_unique_term_slug( sanitize_title( $taxonomy . '-' . $name ), (object) array( 'taxonomy' => AttributeGroups::TAXONOMY, 'parent' => 0 ) );
+		$slug   = wp_unique_term_slug(
+			sanitize_title( $taxonomy . '-' . $name ),
+			(object) array(
+				'taxonomy' => AttributeGroups::TAXONOMY,
+				'parent'   => 0,
+			)
+		);
 		$result = wp_insert_term( $name, AttributeGroups::TAXONOMY, array( 'slug' => $slug ) );
 
 		if ( is_wp_error( $result ) ) {
