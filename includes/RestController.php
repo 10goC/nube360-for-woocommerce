@@ -175,6 +175,16 @@ class RestController {
 
 		register_rest_route(
 			$ns,
+			'/attributes/values/(?P<id>\d+)',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_attribute_value' ),
+				'permission_callback' => array( Auth::class, 'check_permission' ),
+			)
+		);
+
+		register_rest_route(
+			$ns,
 			'/products',
 			array(
 				array(
@@ -374,6 +384,20 @@ class RestController {
 	 */
 	public function get_attributes() {
 		return new WP_REST_Response( array( 'attributes' => ( new Attributes() )->list_all() ), 200 );
+	}
+
+	/**
+	 * GET /attributes/values/{id}
+	 *
+	 * One value ({id, attribute, value, group}) by its term id: what Nube360
+	 * reads when the store tells it that the group of a value changed.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_attribute_value( $request ) {
+		return $this->respond( ( new Attributes() )->get_value( (int) $request->get_param( 'id' ) ) );
 	}
 
 	/**

@@ -60,6 +60,74 @@ class Webhooks {
 		add_action( 'added_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
 		add_action( 'updated_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
 		add_action( 'deleted_term_meta', array( $this, 'queue_term_image_updated' ), 10, 3 );
+
+		// Groups of attribute values edited by hand in WordPress: a value moved
+		// to another group (or taken out of one), or a group renamed or
+		// deleted. Nube360 is told about each value affected.
+		add_action( 'edit_terms', array( $this, 'remember_group_name' ), 10, 2 );
+		add_action( 'edited_' . AttributeGroups::TAXONOMY, array( $this, 'queue_group_renamed' ), 10, 1 );
+		add_action( 'pre_delete_term', array( $this, 'queue_group_values_before_delete' ), 10, 2 );
+	}
+
+	/**
+	 * Name each group had before it was edited, by term id.
+	 *
+	 * @var string[]
+	 */
+	private static $group_names = array();
+
+	/**
+	 * edit_terms hook (before the update): remembers the name of a group.
+	 *
+	 * @param int    $term_id  Term id.
+	 * @param string $taxonomy Taxonomy.
+	 */
+	public function remember_group_name( $term_id, $taxonomy ) {
+		if ( AttributeGroups::TAXONOMY !== $taxonomy ) {
+			return;
+		}
+
+		$term = get_term( (int) $term_id );
+		if ( $term && ! is_wp_error( $term ) ) {
+			self::$group_names[ (int) $term_id ] = $term->name;
+		}
+	}
+
+	/**
+	 * edited_ hook of the groups: if the name changed, every value of the
+	 * group has a new group name. Editing only the swatch notifies nothing.
+	 *
+	 * @param int $group_id Group term id.
+	 */
+	public function queue_group_renamed( $group_id ) {
+		$group = get_term( (int) $group_id );
+		$old   = isset( self::$group_names[ (int) $group_id ] ) ? self::$group_names[ (int) $group_id ] : null;
+
+		if ( ! $group || is_wp_error( $group ) || $old === $group->name ) {
+			return;
+		}
+
+		foreach ( AttributeGroups::value_ids( $group_id ) as $term_id ) {
+			$this->queue( 'attribute_value.updated', $term_id );
+		}
+	}
+
+	/**
+	 * pre_delete_term hook: deleting a group leaves its values without
+	 * group, so each of them is notified (once the group is gone, nothing
+	 * would say which values it had).
+	 *
+	 * @param int    $group_id Term id.
+	 * @param string $taxonomy Taxonomy.
+	 */
+	public function queue_group_values_before_delete( $group_id, $taxonomy ) {
+		if ( AttributeGroups::TAXONOMY !== $taxonomy ) {
+			return;
+		}
+
+		foreach ( AttributeGroups::value_ids( $group_id ) as $term_id ) {
+			$this->queue( 'attribute_value.updated', $term_id );
+		}
 	}
 
 	/**
@@ -109,13 +177,18 @@ class Webhooks {
 
 	/**
 	 * added_/updated_/deleted_term_meta hooks: the image of a brand or of a
-	 * category changed.
+	 * category changed, or the group of an attribute value.
 	 *
 	 * @param int|int[] $meta_id Meta id(s), unused.
 	 * @param int       $term_id Term id.
 	 * @param string    $key     Meta key.
 	 */
 	public function queue_term_image_updated( $meta_id, $term_id, $key ) {
+		if ( AttributeGroups::META_TERM_GROUP === $key ) {
+			$this->queue( 'attribute_value.updated', $term_id );
+			return;
+		}
+
 		if ( Brands::THUMBNAIL_META !== $key ) {
 			return;
 		}

@@ -240,3 +240,115 @@ msgstr "Buscar grupos de atributos"
 #: includes/Attributes.php
 msgid "There are no attributes to synchronize."
 msgstr "No hay atributos para sincronizar."
+
+#: includes/AttributeFilter.php
+msgid "Filter by attribute"
+msgstr "Filtrar por atributo"
+
+#: includes/AttributeFilter.php
+msgid "Attribute"
+msgstr "Atributo"
+
+#: includes/AttributeFilter.php
+msgid "Choices"
+msgstr "Opciones"
+
+#: includes/AttributeFilter.php
+msgid "Display"
+msgstr "Visualización"
+
+#: includes/AttributeFilter.php
+msgid "Each value"
+msgstr "Cada valor"
+
+#: includes/AttributeFilter.php
+msgid "Each group of values"
+msgstr "Cada grupo de valores"
+
+#: includes/AttributeFilter.php
+msgid "Automatic"
+msgstr "Automática"
+
+#: includes/AttributeFilter.php
+msgid "Swatches"
+msgstr "Muestras"
+
+#: includes/AttributeFilter.php
+msgid "List"
+msgstr "Lista"
+
+#: includes/AttributeFilter.php
+msgid "Choose an attribute in the block settings."
+msgstr "Elige un atributo en los ajustes del bloque."
+
+#: includes/AttributeFilterWidget.php
+msgid "Nube360: filter by attribute"
+msgstr "Nube360: filtrar por atributo"
+
+#: includes/AttributeFilterWidget.php
+msgid "Swatches or a list to filter products by an attribute."
+msgstr "Muestras o una lista para filtrar los productos por un atributo."
+
+#: includes/AttributeFilterWidget.php
+msgid "Title:"
+msgstr "Título:"
+
+#: includes/AttributeFilterWidget.php
+msgid "Attribute:"
+msgstr "Atributo:"
+
+#: includes/AttributeFilterWidget.php
+msgid "Choices:"
+msgstr "Opciones:"
+
+#: includes/AttributeFilterWidget.php
+msgid "Display:"
+msgstr "Visualización:"
+
+#: includes/Swatches.php
+msgid "Swatch (colour or image)"
+msgstr "Muestra (color o imagen)"
+
+#: includes/Swatches.php
+msgid "Swatch colour"
+msgstr "Color de la muestra"
+
+#: includes/Swatches.php
+msgid "Swatch image"
+msgstr "Imagen de la muestra"
+
+#: includes/Swatches.php
+msgid "When there is an image it is shown instead of the colour."
+msgstr "Si hay una imagen, se muestra en lugar del color."
+
+#: includes/Swatches.php
+msgid "Select image"
+msgstr "Seleccionar imagen"
+
+#: includes/Swatches.php
+msgid "Remove image"
+msgstr "Quitar imagen"
+
+#: includes/AttributeGroups.php
+msgid "Group"
+msgstr "Grupo"
+
+#: includes/AttributeGroups.php
+msgid "Values"
+msgstr "Valores"
+
+#: includes/AttributeGroups.php
+msgid "Swatch"
+msgstr "Muestra"
+
+#: includes/AttributeGroups.php
+msgid "— No group —"
+msgstr "— Sin grupo —"
+
+#: includes/AttributeGroups.php
+msgid "Groups are created under Products > Attribute groups. Nube360 is notified and updates the group of the value on its side."
+msgstr "Los grupos se crean en Productos > Grupos de atributos. Nube360 recibe un aviso y actualiza el grupo del valor de su lado."
+
+#: includes/Attributes.php
+msgid "The given attribute value does not exist."
+msgstr "El valor de atributo indicado no existe."

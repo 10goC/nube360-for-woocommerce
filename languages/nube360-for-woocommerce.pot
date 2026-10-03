@@ -240,3 +240,115 @@ msgstr ""
 #: includes/Attributes.php
 msgid "There are no attributes to synchronize."
 msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Filter by attribute"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Attribute"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Choices"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Display"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Each value"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Each group of values"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Automatic"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Swatches"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "List"
+msgstr ""
+
+#: includes/AttributeFilter.php
+msgid "Choose an attribute in the block settings."
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Nube360: filter by attribute"
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Swatches or a list to filter products by an attribute."
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Title:"
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Attribute:"
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Choices:"
+msgstr ""
+
+#: includes/AttributeFilterWidget.php
+msgid "Display:"
+msgstr ""
+
+#: includes/Swatches.php
+msgid "Swatch (colour or image)"
+msgstr ""
+
+#: includes/Swatches.php
+msgid "Swatch colour"
+msgstr ""
+
+#: includes/Swatches.php
+msgid "Swatch image"
+msgstr ""
+
+#: includes/Swatches.php
+msgid "When there is an image it is shown instead of the colour."
+msgstr ""
+
+#: includes/Swatches.php
+msgid "Select image"
+msgstr ""
+
+#: includes/Swatches.php
+msgid "Remove image"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Group"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Values"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Swatch"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "— No group —"
+msgstr ""
+
+#: includes/AttributeGroups.php
+msgid "Groups are created under Products > Attribute groups. Nube360 is notified and updates the group of the value on its side."
+msgstr ""
+
+#: includes/Attributes.php
+msgid "The given attribute value does not exist."
+msgstr ""

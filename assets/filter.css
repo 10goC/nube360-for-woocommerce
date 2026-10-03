@@ -1,0 +1,65 @@
+.nube360-wc-filter {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.nube360-wc-filter__item a {
+	text-decoration: none;
+}
+
+/* Swatches: a row of round chips. */
+.nube360-wc-filter--swatch {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.nube360-wc-filter--swatch .nube360-wc-filter__item a {
+	display: block;
+	border-radius: 50%;
+}
+
+.nube360-wc-swatch {
+	display: block;
+	width: 28px;
+	height: 28px;
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	border-radius: 50%;
+	background-position: center;
+	background-size: cover;
+	box-sizing: border-box;
+}
+
+.nube360-wc-swatch--text {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: auto;
+	min-width: 28px;
+	padding: 0 8px;
+	border-radius: 14px;
+	font-size: 0.85em;
+	line-height: 1;
+}
+
+.nube360-wc-filter--swatch .is-active a {
+	outline: 2px solid currentcolor;
+	outline-offset: 2px;
+}
+
+/* List: a checkbox-like marker before the name. */
+.nube360-wc-filter--list .nube360-wc-filter__item a::before {
+	display: inline-block;
+	width: 0.9em;
+	height: 0.9em;
+	margin-right: 0.5em;
+	border: 1px solid currentcolor;
+	border-radius: 2px;
+	content: "";
+	vertical-align: -0.1em;
+}
+
+.nube360-wc-filter--list .is-active a::before {
+	background: currentcolor;
+}

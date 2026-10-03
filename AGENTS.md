@@ -26,6 +26,9 @@ includes/                     One class per file, PSR-4: Nube360\WooCommerce\Pro
   TaxId.php                   Tax ID field: registration form, My Account, user profile (user meta `nube360_wc_tax_id`)
   Attributes.php              Global attributes (pa_*), their values and groups: find-or-create, GET/PUT /attributes
   AttributeGroups.php         Taxonomy `nube360_wc_attr_group` (the groups) and its term meta (colour, image)
+  Swatches.php                `nube360_swatch` attribute type + admin fields (colour picker, image) for groups and values
+  AttributeFilter.php         Storefront filter (shortcode, block, widget): swatch palette or list, by value or by group
+  AttributeFilterWidget.php   Classic widget of the filter
   Orders.php, Categories.php, Auth.php, HttpClient.php, Admin.php
 languages/                    .pot + es_ES/es_AR .po/.mo
 tests/unit, tests/integration
@@ -62,6 +65,16 @@ tests/unit, tests/integration
   term, never `sanitize_title(value)`. A group is a term of `nube360_wc_attr_group` with meta
   `nube360_wc_attribute` (the `pa_*` taxonomy); a value points to it with term meta `_nube360_wc_group_id`. The
   swatch (colour / image) of a group lives only in WordPress; Nube360 never sends it.
+  Changes made by hand in WordPress go back to Nube360 by term id, like brands and categories: the event
+  `attribute_value.updated` (`{event, id}`) is sent for a value whose group changed and, when a group is renamed or
+  deleted, for each of its values; Nube360 reads `GET /attributes/values/{id}` (`{id, attribute, value, group}`) and
+  keeps the id in `atributos_valores.id_ecommerce`. A group is found by name within its attribute, never by slug
+  (renaming it in WordPress does not change its slug).
+  The other way round, a value whose group changed in Nube360 is moved with `PUT /attributes`: an item with the `id`
+  of its term, or with the `previous_group` it had, moves that same term (same slug, same products) instead of
+  creating a new one; a move that would duplicate a value in the new group is skipped and listed in `conflicts`. The storefront filter does
+  not query products: its links use WooCommerce's layered-navigation parameters (`filter_{attr}=a,b` +
+  `query_type_{attr}=or`) and a group link just lists all the slugs of its values.
 - Creating products is idempotent by SKU; a family is found by `family_ref` (meta on the parent).
 - Only use WooCommerce CRUD objects (`wc_get_product()`, `wc_get_order()`): the plugin declares HPOS
   compatibility and must not touch `posts`/`postmeta` for orders.

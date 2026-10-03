@@ -117,6 +117,8 @@ final class Plugin {
 		}
 
 		new AttributeGroups();
+		new Swatches();
+		new AttributeFilter();
 		new Images();
 		new TaxId();
 		new RestController();

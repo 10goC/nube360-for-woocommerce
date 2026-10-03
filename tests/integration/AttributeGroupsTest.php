@@ -155,6 +155,7 @@ class AttributeGroupsTest extends TestCase {
 	public function test_attributes_are_listed_with_values_groups_and_swatches() {
 		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
 		$group = get_term_by( 'slug', 'pa_size-babies', AttributeGroups::TAXONOMY );
+		$value = get_term_by( 'slug', '2', 'pa_size' );
 		update_term_meta( $group->term_id, AttributeGroups::META_COLOR, '#ffcc00' );
 
 		$data = $this->api_ok( 'GET', '/attributes' );
@@ -163,8 +164,8 @@ class AttributeGroupsTest extends TestCase {
 			array(
 				array(
 					'name'   => 'Size',
-					'values' => array( array( 'value' => '2', 'group' => 'Babies' ) ),
-					'groups' => array( array( 'name' => 'Babies', 'color' => '#ffcc00', 'image' => null ) ),
+					'values' => array( array( 'id' => (string) $value->term_id, 'value' => '2', 'group' => 'Babies' ) ),
+					'groups' => array( array( 'id' => (string) $group->term_id, 'name' => 'Babies', 'color' => '#ffcc00', 'image' => null ) ),
 				),
 			),
 			$data['attributes']
@@ -204,6 +205,24 @@ class AttributeGroupsTest extends TestCase {
 		$this->assertSame( 401, $this->api( 'GET', '/attributes', null, array(), null )->get_status() );
 	}
 
+	public function test_the_admin_lists_show_the_group_of_each_value_and_the_values_of_each_group() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-2', '3', 'Babies' ) );
+		$this->start_new_request();
+		$groups = new AttributeGroups();
+		$value  = get_term_by( 'slug', '2', 'pa_size' );
+		$group  = get_term_by( 'slug', 'pa_size-babies', AttributeGroups::TAXONOMY );
+
+		$this->assertSame( 'Babies', $groups->render_value_column( '', 'nube360_wc_group', $value->term_id ) );
+		$this->assertSame( '', $groups->render_value_column( '', 'nube360_wc_group', get_term_by( 'slug', '3', 'pa_size' )->term_id + 999 ) );
+		$this->assertSame( '2', $groups->render_group_column( '', 'nube360_wc_values', $group->term_id ) );
+		$this->assertSame( 'Size', $groups->render_group_column( '', 'nube360_wc_attribute', $group->term_id ) );
+
+		$columns = $groups->add_group_columns( array( 'cb' => '', 'name' => 'Name', 'posts' => 'Count' ) );
+		$this->assertSame( array( 'cb', 'name', 'nube360_wc_attribute', 'nube360_wc_values', 'nube360_wc_swatch' ), array_keys( $columns ) );
+		$this->assertSame( array( 'name', 'nube360_wc_group', 'slug' ), array_keys( $groups->add_value_columns( array( 'name' => 'Name', 'slug' => 'Slug' ) ) ) );
+	}
+
 	public function test_the_group_is_only_added_to_the_slug_when_the_plain_one_is_taken() {
 		$first  = $this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', 'White', 'White' ) );
 		$second = $this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-2', 'White', 'Cream' ) );
@@ -229,5 +248,123 @@ class AttributeGroupsTest extends TestCase {
 
 		$this->assertSame( array( 'pa_size' => 'white' ), wc_get_product( (int) $grouped['variant_id'] )->get_attributes() );
 		$this->assertCount( 1, get_terms( array( 'taxonomy' => 'pa_size', 'hide_empty' => false ) ) );
+	}
+
+	public function test_the_value_forms_offer_only_the_groups_of_their_attribute() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$this->attributes->ensure_term( $this->attributes->ensure_attribute( 'Color' ), 'Navy', 'Blue' );
+		$groups = new AttributeGroups();
+		$term   = get_term_by( 'slug', '2', 'pa_size' );
+
+		ob_start();
+		$groups->render_edit_field( $term, 'pa_size' );
+		$edit = ob_get_clean();
+		ob_start();
+		$groups->render_add_field( 'pa_size' );
+		$add = ob_get_clean();
+
+		$this->assertStringContainsString( 'Babies', $edit );
+		$this->assertStringNotContainsString( 'Blue', $edit );
+		$this->assertMatchesRegularExpression( '/<option value="\d+"\s+selected=\'selected\'>Babies/', $edit );
+		$this->assertStringNotContainsString( 'selected', $add );
+	}
+
+	public function test_saving_the_value_form_sets_and_clears_the_group() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-2', '3', 'Juvenile' ) );
+		$groups   = new AttributeGroups();
+		$term_id  = get_term_by( 'slug', '2', 'pa_size' )->term_id;
+		$juvenile = get_term_by( 'slug', 'pa_size-juvenile', AttributeGroups::TAXONOMY )->term_id;
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST[ AttributeGroups::NONCE ] = wp_create_nonce( AttributeGroups::NONCE );
+
+		$_POST['nube360_wc_group_id'] = (string) $juvenile;
+		$groups->save_field( $term_id );
+		$this->assertSame( 'Juvenile', $this->attributes->term_group_name( $term_id ) );
+
+		$_POST['nube360_wc_group_id'] = '0';
+		$groups->save_field( $term_id );
+		$this->assertSame( '', $this->attributes->term_group_name( $term_id ) );
+
+		unset( $_POST[ AttributeGroups::NONCE ], $_POST['nube360_wc_group_id'] );
+	}
+
+	public function test_a_group_of_another_attribute_or_without_nonce_is_not_saved() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$this->attributes->ensure_term( $this->attributes->ensure_attribute( 'Color' ), 'Navy', 'Blue' );
+		$groups   = new AttributeGroups();
+		$term_id  = get_term_by( 'slug', '2', 'pa_size' )->term_id;
+		$blue     = get_term_by( 'slug', 'pa_color-blue', AttributeGroups::TAXONOMY )->term_id;
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		$_POST['nube360_wc_group_id'] = (string) $blue;
+		$groups->save_field( $term_id );
+		$this->assertSame( 'Babies', $this->attributes->term_group_name( $term_id ), 'No nonce: nothing changes.' );
+
+		$_POST[ AttributeGroups::NONCE ] = wp_create_nonce( AttributeGroups::NONCE );
+		$groups->save_field( $term_id );
+		$this->assertSame( '', $this->attributes->term_group_name( $term_id ), 'A group of another attribute leaves it without group.' );
+
+		unset( $_POST[ AttributeGroups::NONCE ], $_POST['nube360_wc_group_id'] );
+	}
+
+	private function put_values( array $values ) {
+		return $this->api_ok( 'PUT', '/attributes', array( 'attributes' => array( array( 'name' => 'Size', 'values' => $values ) ) ) );
+	}
+
+	public function test_a_value_is_moved_to_another_group_by_its_term_id() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$term = get_term_by( 'slug', '2', 'pa_size' );
+
+		$data = $this->put_values( array( array( 'id' => $term->term_id, 'value' => '2', 'group' => 'Juvenile' ) ) );
+
+		$this->assertSame( array(), $data['conflicts'] );
+		$this->assertSame( 'Juvenile', $this->attributes->term_group_name( $term->term_id ) );
+		$this->assertCount( 1, get_terms( array( 'taxonomy' => 'pa_size', 'hide_empty' => false ) ), 'The same term, not a new one.' );
+		$this->assertSame( '2', get_term( $term->term_id )->slug, 'Its slug does not change: the variations point to it.' );
+		$this->assertSame( array(), $this->sent_events(), 'Nothing is echoed back to Nube360.' );
+	}
+
+	public function test_a_value_is_moved_by_the_group_it_had_before() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$term = get_term_by( 'slug', '2', 'pa_size' );
+
+		$this->put_values( array( array( 'value' => '2', 'group' => 'Juvenile', 'previous_group' => 'Babies' ) ) );
+
+		$this->assertSame( 'Juvenile', $this->attributes->term_group_name( $term->term_id ) );
+		$this->assertCount( 1, get_terms( array( 'taxonomy' => 'pa_size', 'hide_empty' => false ) ) );
+	}
+
+	public function test_a_value_can_be_taken_out_of_its_group() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$term = get_term_by( 'slug', '2', 'pa_size' );
+
+		$this->put_values( array( array( 'id' => $term->term_id, 'value' => '2', 'group' => '' ) ) );
+
+		$this->assertSame( '', $this->attributes->term_group_name( $term->term_id ) );
+	}
+
+	public function test_a_move_that_would_duplicate_a_value_in_its_new_group_is_reported_and_left_alone() {
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-1', '2', 'Babies' ) );
+		$this->api_ok( 'POST', '/products', $this->size_body( 'SOCK-2', '2', 'Juvenile' ) );
+		$babies = get_term_by( 'slug', '2', 'pa_size' );
+
+		$data = $this->put_values( array( array( 'id' => $babies->term_id, 'value' => '2', 'group' => 'Juvenile' ) ) );
+
+		$this->assertSame( array( array( 'attribute' => 'Size', 'value' => '2', 'group' => 'Juvenile' ) ), $data['conflicts'] );
+		$this->assertSame( 'Babies', $this->attributes->term_group_name( $babies->term_id ) );
+	}
+
+	public function test_an_id_or_previous_group_that_matches_nothing_creates_the_value_as_usual() {
+		$this->put_values(
+			array(
+				array( 'id' => 999999, 'value' => '2', 'group' => 'Babies' ),
+				array( 'value' => '3', 'group' => 'Babies', 'previous_group' => 'Nowhere' ),
+			)
+		);
+
+		$this->assertCount( 2, get_terms( array( 'taxonomy' => 'pa_size', 'hide_empty' => false ) ) );
+		$this->assertSame( 'Babies', $this->group_of_term( 'pa_size', '2' ) );
+		$this->assertSame( 'Babies', $this->group_of_term( 'pa_size', '3' ) );
 	}
 }
