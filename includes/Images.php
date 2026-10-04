@@ -197,6 +197,16 @@ class Images {
 		$attachment_id = self::sideload( $url, 0, $name );
 
 		if ( is_wp_error( $attachment_id ) ) {
+			$term = get_term( $term_id );
+
+			self::log_failure(
+				$term && ! is_wp_error( $term ) ? $term->taxonomy : 'term',
+				$term_id,
+				$term && ! is_wp_error( $term ) ? $term->name : '',
+				$url,
+				$attachment_id
+			);
+
 			return false;
 		}
 
@@ -356,6 +366,45 @@ class Images {
 	}
 
 	/**
+	 * Name and SKU of a product, to identify it in the log.
+	 *
+	 * @param \WC_Product $product Product.
+	 *
+	 * @return string
+	 */
+	private static function product_label( $product ) {
+		$sku = $product->get_sku();
+
+		return $product->get_name() . ( '' !== $sku ? ' (SKU ' . $sku . ')' : '' );
+	}
+
+	/**
+	 * Logs an image that could not be downloaded, with what it belongs to, in
+	 * WooCommerce > Status > Logs (source `nube360-for-woocommerce`). Each
+	 * failed attempt is logged, so a retried image shows up once per attempt.
+	 *
+	 * @param string   $type  What the image belongs to: "product" or the
+	 *                        taxonomy of the term ("product_cat", "product_brand").
+	 * @param int      $id    Product or term id.
+	 * @param string   $label Name of the product or term.
+	 * @param string   $url   URL that failed.
+	 * @param WP_Error $error Download error.
+	 */
+	private static function log_failure( $type, $id, $label, $url, $error ) {
+		wc_get_logger()->error(
+			sprintf(
+				'Image could not be downloaded for %1$s #%2$d "%3$s": %4$s (%5$s)',
+				$type,
+				(int) $id,
+				$label,
+				$url,
+				$error->get_error_message()
+			),
+			array( 'source' => 'nube360-for-woocommerce' )
+		);
+	}
+
+	/**
 	 * Loads the WordPress admin functions that download images.
 	 */
 	private static function load_media_functions() {
@@ -403,7 +452,9 @@ class Images {
 			}
 
 			$attachment_id = self::sideload( $url, $product_id, isset( $names[ $url ] ) ? $names[ $url ] : '' );
-			if ( ! is_wp_error( $attachment_id ) ) {
+			if ( is_wp_error( $attachment_id ) ) {
+				self::log_failure( 'product', $product_id, self::product_label( $product ), $url, $attachment_id );
+			} else {
 				$new_ids[] = (int) $attachment_id;
 			}
 		}
@@ -565,7 +616,9 @@ class Images {
 
 		foreach ( $urls as $url ) {
 			$attachment_id = self::sideload( $url, $product_id, isset( $names[ $url ] ) ? $names[ $url ] : '' );
-			if ( ! is_wp_error( $attachment_id ) ) {
+			if ( is_wp_error( $attachment_id ) ) {
+				self::log_failure( 'product', $product_id, self::product_label( $product ), $url, $attachment_id );
+			} else {
 				$attachment_ids[] = $attachment_id;
 			}
 		}

@@ -32,7 +32,28 @@ class ImagesTest extends TestCase {
 	private function product( $has_image = false ) {
 		$product = Mockery::mock( 'WC_Product' );
 		$product->shouldReceive( 'get_image_id' )->andReturn( $has_image ? 500 : 0 );
+		$product->shouldReceive( 'get_name' )->andReturn( 'Remera' );
+		$product->shouldReceive( 'get_sku' )->andReturn( 'REM-1' );
 		return $product;
+	}
+
+	/**
+	 * Replaces the WooCommerce logger with one that collects the error lines.
+	 *
+	 * @return \ArrayObject Messages logged at error level.
+	 */
+	private function capture_log() {
+		$messages = new \ArrayObject();
+		$logger   = Mockery::mock( 'WC_Logger' );
+		$logger->shouldReceive( 'error' )->andReturnUsing(
+			function ( $message, $context ) use ( $messages ) {
+				$this->assertSame( array( 'source' => 'nube360-for-woocommerce' ), $context );
+				$messages[] = $message;
+			}
+		);
+		Functions\when( 'wc_get_logger' )->justReturn( $logger );
+
+		return $messages;
 	}
 
 	public function test_it_hooks_the_scheduled_action_callback() {
@@ -125,8 +146,14 @@ class ImagesTest extends TestCase {
 		Functions\expect( 'media_sideload_image' )
 			->twice()
 			->andReturn( new WP_Error( 'http', 'timeout' ), 902 );
+		$log = $this->capture_log();
 
 		( new Images() )->process( 10, array( 'https://x.test/1.jpg', 'https://x.test/2.jpg' ), 1 );
+
+		$this->assertSame(
+			array( 'Image could not be downloaded for product #10 "Remera (SKU REM-1)": https://x.test/1.jpg (timeout)' ),
+			$log->getArrayCopy()
+		);
 	}
 
 	public function test_a_product_that_already_has_an_image_is_left_alone() {
@@ -154,6 +181,7 @@ class ImagesTest extends TestCase {
 	public function test_when_no_image_could_be_downloaded_it_is_rescheduled_with_a_growing_wait( $attempt, $wait ) {
 		Functions\when( 'wc_get_product' )->justReturn( $this->product() );
 		Functions\when( 'media_sideload_image' )->justReturn( new WP_Error( 'http', 'timeout' ) );
+		$this->capture_log();
 
 		$urls = array( 'https://x.test/1.jpg' );
 		Functions\expect( 'as_schedule_single_action' )
@@ -182,11 +210,45 @@ class ImagesTest extends TestCase {
 	public function test_after_the_last_attempt_it_throws_so_the_action_is_marked_as_failed() {
 		Functions\when( 'wc_get_product' )->justReturn( $this->product() );
 		Functions\when( 'media_sideload_image' )->justReturn( new WP_Error( 'http', 'timeout' ) );
+		$this->capture_log();
 		Functions\expect( 'as_schedule_single_action' )->never();
 
 		$this->expectException( Exception::class );
 		$this->expectExceptionMessage( 'after 3 attempts' );
 
 		( new Images() )->process( 10, array( 'https://x.test/1.jpg' ), Images::MAX_ATTEMPTS );
+	}
+
+	public function test_a_term_image_that_fails_is_logged_with_its_taxonomy_and_name_and_the_term_is_left_alone() {
+		$term           = (object) array(
+			'taxonomy' => 'product_cat',
+			'name'     => 'Remeras',
+		);
+		Functions\when( 'get_term_meta' )->justReturn( 0 );
+		Functions\when( 'get_term' )->justReturn( $term );
+		Functions\when( 'media_sideload_image' )->justReturn( new WP_Error( 'http', 'timeout' ) );
+		Functions\expect( 'update_term_meta' )->never();
+		$log = $this->capture_log();
+
+		$this->assertFalse( Images::sync_term_image( 7, 'https://x.test/cat.jpg' ) );
+
+		$this->assertSame(
+			array( 'Image could not be downloaded for product_cat #7 "Remeras": https://x.test/cat.jpg (timeout)' ),
+			$log->getArrayCopy()
+		);
+	}
+
+	public function test_a_term_image_that_fails_is_logged_even_if_the_term_cannot_be_read() {
+		Functions\when( 'get_term_meta' )->justReturn( 0 );
+		Functions\when( 'get_term' )->justReturn( null );
+		Functions\when( 'media_sideload_image' )->justReturn( new WP_Error( 'http', 'timeout' ) );
+		$log = $this->capture_log();
+
+		$this->assertFalse( Images::sync_term_image( 7, 'https://x.test/cat.jpg' ) );
+
+		$this->assertSame(
+			array( 'Image could not be downloaded for term #7 "": https://x.test/cat.jpg (timeout)' ),
+			$log->getArrayCopy()
+		);
 	}
 }
