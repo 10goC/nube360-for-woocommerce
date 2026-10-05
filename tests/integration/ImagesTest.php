@@ -175,6 +175,65 @@ class ImagesTest extends TestCase {
 		$this->assertSame( array(), $this->sent_events(), 'Assigning the images is our own change and must not echo to Nube360.' );
 	}
 
+	public function test_a_variation_gets_only_the_first_image_of_its_gallery() {
+		$result = ( new Products() )->create(
+			array(
+				'title'             => 'Shirt',
+				'family_attributes' => array( 'Color' ),
+				'variant'           => array(
+					'sku'    => 'SH-RED',
+					'price'  => 1,
+					'values' => array( array( 'attribute' => 'Color', 'value' => 'Red' ) ),
+					'images' => array(
+						array( 'src' => 'https://images.test/red-1.png' ),
+						array( 'src' => 'https://images.test/red-2.png' ),
+					),
+				),
+			)
+		);
+
+		wp_cache_flush();
+		$variation = wc_get_product( $result['variant_id'] );
+		$this->assertNotSame( 0, $variation->get_image_id() );
+		$this->assertSame( array( 'https://images.test/red-1.png' ), $this->downloads, 'WooCommerce has one image per variation: only the first one is downloaded.' );
+		$this->assertEmpty( wc_get_product( $result['id'] )->get_image_id(), 'The variation image is not set on the parent.' );
+	}
+
+	public function test_a_variation_image_is_replaced_by_the_first_one_of_the_new_gallery() {
+		$result = ( new Products() )->create(
+			array(
+				'title'             => 'Shirt',
+				'family_attributes' => array( 'Color' ),
+				'variant'           => array(
+					'sku'    => 'SH-RED',
+					'price'  => 1,
+					'values' => array( array( 'attribute' => 'Color', 'value' => 'Red' ) ),
+					'images' => array( array( 'src' => 'https://images.test/red-1.png' ) ),
+				),
+			)
+		);
+		$this->downloads = array();
+
+		( new Products() )->update(
+			$result['id'],
+			$result['variant_id'],
+			array(
+				'images' => array(
+					array( 'src' => 'https://images.test/red-2.png' ),
+					array( 'src' => 'https://images.test/red-3.png' ),
+				),
+			)
+		);
+
+		wp_cache_flush();
+		$this->assertSame( array( 'https://images.test/red-2.png' ), $this->downloads );
+		$this->assertTrue( (bool) wc_get_product( $result['variant_id'] )->get_image_id() );
+
+		( new Products() )->update( $result['id'], $result['variant_id'], array( 'images' => array() ) );
+		wp_cache_flush();
+		$this->assertSame( 0, wc_get_product( $result['variant_id'] )->get_image_id() );
+	}
+
 	/* ------------------------------------------------- background (Action Scheduler) */
 
 	private function enable_background_processing() {

@@ -684,12 +684,30 @@ class Products {
 
 		Webhooks::suppress();
 		try {
-			return $variation->save();
+			$variation_id = $variation->save();
 		} catch ( Exception $e ) {
 			return $this->save_error( $e );
 		} finally {
 			Webhooks::resume();
 		}
+
+		if ( ! empty( $variant['images'] ) && is_array( $variant['images'] ) ) {
+			Images::schedule( $variation_id, self::first_image( $variant['images'] ) );
+		}
+
+		return $variation_id;
+	}
+
+	/**
+	 * A variation has a single image in WooCommerce core (no gallery), so
+	 * of the gallery Nube360 has for a variant only the first photo is used.
+	 *
+	 * @param array $images List of {"src": "..."} (or of URLs).
+	 *
+	 * @return array The first image, or an empty list.
+	 */
+	private static function first_image( $images ) {
+		return array_slice( array_values( $images ), 0, 1 );
 	}
 
 	/**
@@ -768,6 +786,13 @@ class Products {
 			return $this->save_error( $e );
 		} finally {
 			Webhooks::resume();
+		}
+
+		// The gallery of a variant: a variation keeps only the first photo.
+		// An empty list removes the one it has.
+		if ( array_key_exists( 'images', $body ) && is_array( $body['images'] ) ) {
+			$images = $product->is_type( 'variation' ) ? self::first_image( $body['images'] ) : $body['images'];
+			Images::replace( $product->get_id(), $images );
 		}
 
 		return array( 'success' => true );
