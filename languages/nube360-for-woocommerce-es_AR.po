@@ -17,6 +17,10 @@ msgstr ""
 msgid "Nube360"
 msgstr "Nube360"
 
+#: includes/Admin.php:62
+msgid "Settings"
+msgstr "Ajustes"
+
 #: includes/Admin.php:79
 msgid "You have unsaved changes. \"Test connection\" uses the saved data, not the form values. Save first?"
 msgstr "Tenés cambios sin guardar. \"Probar conexión\" usa los datos ya guardados, no los del formulario. ¿Guardar primero?"

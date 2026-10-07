@@ -45,6 +45,22 @@ class Admin {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'process_form' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_filter( 'plugin_action_links_' . BASENAME, array( $this, 'add_settings_link' ) );
+	}
+
+	/**
+	 * Adds the "Settings" link to the plugin's row in the Plugins screen.
+	 *
+	 * @param string[] $links Existing action links.
+	 * @return string[]
+	 */
+	public function add_settings_link( $links ) {
+		$url = admin_url( 'options-general.php?page=' . self::PAGE_SLUG );
+		array_unshift(
+			$links,
+			'<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'nube360-for-woocommerce' ) . '</a>'
+		);
+		return $links;
 	}
 
 	/**
