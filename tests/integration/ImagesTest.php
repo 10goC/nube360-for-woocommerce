@@ -265,6 +265,98 @@ class ImagesTest extends TestCase {
 		$this->assertNull( get_post( $own_image ), 'The replaced image of the variation should be gone.' );
 	}
 
+	private function variation_with_image( $family_ref, $sku, $size, $url ) {
+		return ( new Products() )->create(
+			array(
+				'title'             => 'Shirt',
+				'family_ref'        => $family_ref,
+				'family_attributes' => array( 'Color', 'Size' ),
+				'variant'           => array(
+					'sku'    => $sku,
+					'price'  => 1,
+					'values' => array(
+						array( 'attribute' => 'Color', 'value' => 'Red' ),
+						array( 'attribute' => 'Size', 'value' => $size ),
+					),
+					'images' => array( array( 'src' => $url ) ),
+				),
+			)
+		);
+	}
+
+	private function attachments_from( $url ) {
+		return get_posts(
+			array(
+				'post_type'      => 'attachment',
+				'post_status'    => 'inherit',
+				'fields'         => 'ids',
+				'posts_per_page' => -1,
+				'meta_key'       => Images::META_SOURCE_URL, // phpcs:ignore WordPress.DB.SlowDBQuery
+				'meta_value'     => $url, // phpcs:ignore WordPress.DB.SlowDBQuery
+			)
+		);
+	}
+
+	public function test_variations_that_share_a_photo_share_one_attachment() {
+		$a = $this->variation_with_image( 'fam-1', 'SH-RED-S', 'S', 'https://images.test/red.png' );
+		$b = $this->variation_with_image( 'fam-1', 'SH-RED-M', 'M', 'https://images.test/red.png' );
+		$c = $this->variation_with_image( 'fam-1', 'SH-RED-L', 'L', 'https://images.test/red.png' );
+
+		wp_cache_flush();
+		$ids = array();
+		foreach ( array( $a, $b, $c ) as $result ) {
+			$ids[] = wc_get_product( $result['variant_id'] )->get_image_id( 'edit' );
+		}
+
+		$this->assertNotEmpty( $ids[0] );
+		$this->assertSame( array( $ids[0], $ids[0], $ids[0] ), $ids, 'Every variation should use the same attachment.' );
+		$this->assertCount( 1, $this->attachments_from( 'https://images.test/red.png' ) );
+		$this->assertSame( array( 'https://images.test/red.png' ), $this->downloads, 'The photo is downloaded once.' );
+	}
+
+	public function test_replacing_a_shared_image_does_not_delete_it_for_the_others() {
+		$a = $this->variation_with_image( 'fam-1', 'SH-RED-S', 'S', 'https://images.test/red.png' );
+		$b = $this->variation_with_image( 'fam-1', 'SH-RED-M', 'M', 'https://images.test/red.png' );
+
+		wp_cache_flush();
+		$shared = wc_get_product( $a['variant_id'] )->get_image_id( 'edit' );
+
+		( new Products() )->update( $a['id'], $a['variant_id'], array( 'images' => array( array( 'src' => 'https://images.test/blue.png' ) ) ) );
+		wp_cache_flush();
+
+		$this->assertNotSame( $shared, wc_get_product( $a['variant_id'] )->get_image_id( 'edit' ) );
+		$this->assertNotNull( get_post( $shared ), 'The attachment is still used by the other variation.' );
+		$this->assertSame( $shared, wc_get_product( $b['variant_id'] )->get_image_id( 'edit' ) );
+
+		// Once nobody uses it, it goes.
+		( new Products() )->update( $b['id'], $b['variant_id'], array( 'images' => array() ) );
+		wp_cache_flush();
+		$this->assertNull( get_post( $shared ) );
+	}
+
+	public function test_the_family_gallery_and_a_variation_share_the_attachment() {
+		$result = ( new Products() )->create(
+			array(
+				'title'             => 'Shirt',
+				'images'            => array( array( 'src' => 'https://images.test/red.png' ) ),
+				'family_attributes' => array( 'Color' ),
+				'variant'           => array(
+					'sku'    => 'SH-RED',
+					'price'  => 1,
+					'values' => array( array( 'attribute' => 'Color', 'value' => 'Red' ) ),
+					'images' => array( array( 'src' => 'https://images.test/red.png' ) ),
+				),
+			)
+		);
+
+		wp_cache_flush();
+		$this->assertEquals(
+			wc_get_product( $result['id'] )->get_image_id( 'edit' ),
+			wc_get_product( $result['variant_id'] )->get_image_id( 'edit' )
+		);
+		$this->assertCount( 1, $this->attachments_from( 'https://images.test/red.png' ) );
+	}
+
 	/* ------------------------------------------------- background (Action Scheduler) */
 
 	private function enable_background_processing() {

@@ -18,6 +18,8 @@ class ImagesTest extends TestCase {
 		parent::setUp();
 
 		Actions\expectAdded( 'shutdown' )->zeroOrMoreTimes();
+		// No attachment downloaded from the same URL yet.
+		Functions\when( 'get_posts' )->justReturn( array() );
 	}
 
 	private function background_available( $stub_queue = true ) {

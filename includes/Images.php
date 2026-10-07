@@ -184,7 +184,7 @@ class Images {
 		if ( '' === $url ) {
 			if ( $ours ) {
 				delete_term_meta( $term_id, 'thumbnail_id' );
-				wp_delete_attachment( $current, true );
+				self::delete_if_unused( $current );
 			}
 
 			return true;
@@ -213,7 +213,7 @@ class Images {
 		update_term_meta( $term_id, 'thumbnail_id', (int) $attachment_id );
 
 		if ( $ours ) {
-			wp_delete_attachment( $current, true );
+			self::delete_if_unused( $current );
 		}
 
 		return true;
@@ -283,6 +283,83 @@ class Images {
 	}
 
 	/**
+	 * Attachment the plugin already downloaded from $url, if any.
+	 *
+	 * @param string $url Image URL.
+	 *
+	 * @return int Attachment id, or 0.
+	 */
+	private static function find_by_source_url( $url ) {
+		$ids = get_posts(
+			array(
+				'post_type'        => 'attachment',
+				'post_status'      => 'inherit',
+				'fields'           => 'ids',
+				'posts_per_page'   => 1,
+				'orderby'          => 'ID',
+				'order'            => 'ASC',
+				'no_found_rows'    => true,
+				'suppress_filters' => true,
+				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'   => self::META_SOURCE_URL,
+						'value' => esc_url_raw( $url ),
+					),
+				),
+			)
+		);
+
+		return empty( $ids ) ? 0 : (int) $ids[0];
+	}
+
+	/**
+	 * Whether anything else (another product, variation or term) still uses
+	 * the attachment as its image or in its gallery.
+	 *
+	 * @param int $attachment_id Attachment id.
+	 *
+	 * @return bool
+	 */
+	private static function is_in_use( $attachment_id ) {
+		global $wpdb;
+
+		$attachment_id = (int) $attachment_id;
+
+		$posts = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE ( meta_key = '_thumbnail_id' AND meta_value = %d ) OR ( meta_key = '_product_image_gallery' AND FIND_IN_SET( %d, meta_value ) )",
+				$attachment_id,
+				$attachment_id
+			)
+		);
+
+		if ( $posts > 0 ) {
+			return true;
+		}
+
+		$terms = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->termmeta} WHERE meta_key = 'thumbnail_id' AND meta_value = %d",
+				$attachment_id
+			)
+		);
+
+		return $terms > 0;
+	}
+
+	/**
+	 * Deletes an attachment the plugin downloaded, unless something else
+	 * still uses it (the owner must have stopped referencing it first).
+	 *
+	 * @param int $attachment_id Attachment id.
+	 */
+	private static function delete_if_unused( $attachment_id ) {
+		if ( ! self::is_in_use( $attachment_id ) ) {
+			wp_delete_attachment( $attachment_id, true );
+		}
+	}
+
+	/**
 	 * Whether an attachment was downloaded by this plugin.
 	 *
 	 * @param int $attachment_id Attachment id.
@@ -294,7 +371,10 @@ class Images {
 	}
 
 	/**
-	 * Downloads an image into the media library. With a $name the file is
+	 * Gets an image into the media library. If the plugin already downloaded
+	 * it from the same URL it is reused, so the variations (and the family)
+	 * that share a photo share one attachment instead of one copy each.
+	 * Otherwise it is downloaded: with a $name the file is
 	 * saved under it (WordPress makes it unique if it is taken); without
 	 * one it keeps the name in the URL. Either way the attachment records
 	 * the URL it came from, which is how it is recognized later.
@@ -306,6 +386,11 @@ class Images {
 	 * @return int|WP_Error Attachment id.
 	 */
 	private static function sideload( $url, $parent_id, $name = '' ) {
+		$existing = self::find_by_source_url( $url );
+		if ( $existing ) {
+			return $existing;
+		}
+
 		self::load_media_functions();
 
 		if ( '' === (string) $name ) {
@@ -478,7 +563,7 @@ class Images {
 
 		foreach ( array_diff( $old_ids, $new_ids ) as $old_id ) {
 			if ( self::is_ours( $old_id ) ) {
-				wp_delete_attachment( $old_id, true );
+				self::delete_if_unused( $old_id );
 			}
 		}
 
