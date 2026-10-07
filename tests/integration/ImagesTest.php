@@ -234,6 +234,37 @@ class ImagesTest extends TestCase {
 		$this->assertSame( 0, wc_get_product( $result['variant_id'] )->get_image_id() );
 	}
 
+	public function test_a_variation_gets_its_own_image_when_the_parent_already_has_one() {
+		$result = ( new Products() )->create(
+			array(
+				'title'             => 'Shirt',
+				'images'            => array( array( 'src' => 'https://images.test/family.png' ) ),
+				'family_attributes' => array( 'Color' ),
+				'variant'           => array(
+					'sku'    => 'SH-RED',
+					'price'  => 1,
+					'values' => array( array( 'attribute' => 'Color', 'value' => 'Red' ) ),
+					'images' => array( array( 'src' => 'https://images.test/red.png' ) ),
+				),
+			)
+		);
+
+		wp_cache_flush();
+		$parent_image = wc_get_product( $result['id'] )->get_image_id( 'edit' );
+		$own_image    = wc_get_product( $result['variant_id'] )->get_image_id( 'edit' );
+
+		$this->assertNotEmpty( $parent_image );
+		$this->assertNotEmpty( $own_image, 'WooCommerce answers with the parent image in the view context: that is not the variation image.' );
+		$this->assertNotSame( $parent_image, $own_image );
+		$this->assertSame( 'https://images.test/red.png', get_post_meta( $own_image, Images::META_SOURCE_URL, true ) );
+
+		// Replacing the variation image must never delete the parent one.
+		( new Products() )->update( $result['id'], $result['variant_id'], array( 'images' => array( array( 'src' => 'https://images.test/red-2.png' ) ) ) );
+		wp_cache_flush();
+		$this->assertNotNull( get_post( $parent_image ), 'The image of the parent was deleted.' );
+		$this->assertNull( get_post( $own_image ), 'The replaced image of the variation should be gone.' );
+	}
+
 	/* ------------------------------------------------- background (Action Scheduler) */
 
 	private function enable_background_processing() {

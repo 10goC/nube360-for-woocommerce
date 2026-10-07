@@ -435,7 +435,10 @@ class Images {
 		$wanted  = isset( $decoded['urls'] ) && is_array( $decoded['urls'] ) ? $decoded['urls'] : array();
 		$names   = isset( $decoded['names'] ) && is_array( $decoded['names'] ) ? $decoded['names'] : array();
 
-		$old_ids = array_values( array_filter( array_merge( array( $product->get_image_id() ), $product->get_gallery_image_ids() ) ) );
+		// The 'edit' context is the product's own data: in 'view' a variation
+		// without an image answers with its parent's, which would be taken for
+		// its own (and its attachment deleted below).
+		$old_ids = array_values( array_filter( array_merge( array( $product->get_image_id( 'edit' ) ), $product->get_gallery_image_ids( 'edit' ) ) ) );
 		$new_ids = array();
 		foreach ( $wanted as $url ) {
 			$same = null;
@@ -608,7 +611,7 @@ class Images {
 	 */
 	private static function assign( $product_id, $urls, $names = array() ) {
 		$product = wc_get_product( $product_id );
-		if ( ! $product || $product->get_image_id() ) {
+		if ( ! $product || $product->get_image_id( 'edit' ) ) {
 			return null;
 		}
 
