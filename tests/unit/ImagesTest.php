@@ -20,6 +20,9 @@ class ImagesTest extends TestCase {
 		Actions\expectAdded( 'shutdown' )->zeroOrMoreTimes();
 		// No attachment downloaded from the same URL yet.
 		Functions\when( 'get_posts' )->justReturn( array() );
+		// Nothing crashed before (the guard reads and clears that meta).
+		Functions\when( 'get_post_meta' )->justReturn( '' );
+		Functions\when( 'delete_post_meta' )->justReturn( true );
 	}
 
 	private function background_available( $stub_queue = true ) {

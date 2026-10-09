@@ -71,6 +71,8 @@ class Images {
 	public function __construct() {
 		add_action( self::HOOK, array( $this, 'process' ), 10, 4 );
 		add_action( self::REPLACE_HOOK, array( $this, 'process_replace' ), 10, 1 );
+
+		ImagesGuard::init();
 	}
 
 	/**
@@ -131,6 +133,9 @@ class Images {
 			)
 		);
 
+		// A new list is a new start: whatever crashed before is not held against it.
+		ImagesGuard::clear( $product_id );
+
 		if ( self::in_background() ) {
 			$args = array( $product_id );
 
@@ -147,6 +152,41 @@ class Images {
 	}
 
 	/**
+	 * Queues the continuation of a product's images: the replace action, which
+	 * reads what is wanted from the product and reuses what was already
+	 * downloaded, so it only does what is left. It does not use
+	 * `as_has_scheduled_action()` because that also counts the action that is
+	 * running now (the one being continued).
+	 *
+	 * @param int $product_id Product id.
+	 *
+	 * @return int Id of the pending action (0 if none could be queued).
+	 */
+	public static function enqueue_continuation( $product_id ) {
+		if ( ! self::in_background() ) {
+			return 0;
+		}
+
+		$args    = array( (int) $product_id );
+		$pending = as_get_scheduled_actions(
+			array(
+				'hook'     => self::REPLACE_HOOK,
+				'args'     => $args,
+				'group'    => self::GROUP,
+				'status'   => ActionScheduler_Store::STATUS_PENDING,
+				'per_page' => 1,
+			),
+			'ids'
+		);
+
+		if ( ! empty( $pending ) ) {
+			return (int) reset( $pending );
+		}
+
+		return (int) as_enqueue_async_action( self::REPLACE_HOOK, $args, self::GROUP );
+	}
+
+	/**
 	 * Replace action callback.
 	 *
 	 * @param int $product_id Product id.
@@ -154,6 +194,23 @@ class Images {
 	 * @throws Exception If none of the new images could be downloaded.
 	 */
 	public function process_replace( $product_id ) {
+		ImagesGuard::protect( (int) $product_id );
+
+		try {
+			$this->do_process_replace( (int) $product_id );
+		} finally {
+			ImagesGuard::release();
+		}
+	}
+
+	/**
+	 * Body of `process_replace()`.
+	 *
+	 * @param int $product_id Product id.
+	 *
+	 * @throws Exception If none of the new images could be downloaded.
+	 */
+	private function do_process_replace( $product_id ) {
 		if ( 0 === self::apply_wanted( (int) $product_id ) ) {
 			throw new Exception(
 				sprintf(
@@ -391,6 +448,52 @@ class Images {
 			return $existing;
 		}
 
+		// After a crash the image goes in alone, without its thumbnail sizes (the
+		// heavy part); they can be regenerated later with `wp media regenerate`.
+		$degraded = ImagesGuard::is_degraded( (int) $parent_id );
+		if ( $degraded ) {
+			add_filter( 'intermediate_image_sizes_advanced', '__return_empty_array' );
+			add_filter( 'big_image_size_threshold', '__return_false' );
+		}
+		add_filter( 'http_request_args', array( __CLASS__, 'cap_download_timeout' ) );
+
+		try {
+			return self::download_and_attach( $url, $parent_id, $name );
+		} finally {
+			remove_filter( 'http_request_args', array( __CLASS__, 'cap_download_timeout' ) );
+			if ( $degraded ) {
+				remove_filter( 'intermediate_image_sizes_advanced', '__return_empty_array' );
+				remove_filter( 'big_image_size_threshold', '__return_false' );
+			}
+		}
+	}
+
+	/**
+	 * `download_url()` waits up to 5 minutes by default, far longer than a
+	 * queue run lasts: a slow image server would end in a timeout fatal error.
+	 * Caps the wait to what the request can still afford.
+	 *
+	 * @param array $args Request arguments.
+	 *
+	 * @return array
+	 */
+	public static function cap_download_timeout( $args ) {
+		$left            = ImagesGuard::seconds_left() - 5;
+		$args['timeout'] = (int) max( 5, min( isset( $args['timeout'] ) ? (int) $args['timeout'] : 25, 25, $left ) );
+
+		return $args;
+	}
+
+	/**
+	 * Downloads $url and adds it to the media library.
+	 *
+	 * @param string $url       Image URL.
+	 * @param int    $parent_id Post the attachment belongs to (0 for none).
+	 * @param string $name      File name (optional).
+	 *
+	 * @return int|WP_Error Attachment id.
+	 */
+	private static function download_and_attach( $url, $parent_id, $name ) {
 		self::load_media_functions();
 
 		if ( '' === (string) $name ) {
@@ -523,8 +626,9 @@ class Images {
 		// The 'edit' context is the product's own data: in 'view' a variation
 		// without an image answers with its parent's, which would be taken for
 		// its own (and its attachment deleted below).
-		$old_ids = array_values( array_filter( array_merge( array( $product->get_image_id( 'edit' ) ), $product->get_gallery_image_ids( 'edit' ) ) ) );
-		$new_ids = array();
+		$old_ids   = array_values( array_filter( array_merge( array( $product->get_image_id( 'edit' ) ), $product->get_gallery_image_ids( 'edit' ) ) ) );
+		$new_ids   = array();
+		$downloads = 0;
 		foreach ( $wanted as $url ) {
 			$same = null;
 			foreach ( $old_ids as $old_id ) {
@@ -539,6 +643,15 @@ class Images {
 				continue;
 			}
 
+			// Short of time or memory: what is downloaded stays in the media library
+			// (the next run finds it by its URL) and the rest goes to a new action,
+			// instead of letting this one run into a fatal error. The product is not
+			// touched until it can get its whole list.
+			if ( $downloads > 0 && self::in_background() && ! ImagesGuard::has_budget() && self::enqueue_continuation( $product_id ) ) {
+				return null;
+			}
+
+			++$downloads;
 			$attachment_id = self::sideload( $url, $product_id, isset( $names[ $url ] ) ? $names[ $url ] : '' );
 			if ( is_wp_error( $attachment_id ) ) {
 				self::log_failure( 'product', $product_id, self::product_label( $product ), $url, $attachment_id );
@@ -550,6 +663,8 @@ class Images {
 		if ( ! empty( $wanted ) && empty( $new_ids ) ) {
 			return 0;
 		}
+
+		ImagesGuard::clear( $product_id );
 
 		if ( array_map( 'intval', $old_ids ) === $new_ids ) {
 			return count( $new_ids );
@@ -586,6 +701,32 @@ class Images {
 	 * @throws Exception If no image could be assigned on the last attempt.
 	 */
 	public function process( $product_id, $urls, $attempt = 1, $names = array() ) {
+		ImagesGuard::protect(
+			(int) $product_id,
+			array(
+				'urls'  => (array) $urls,
+				'names' => (array) $names,
+			)
+		);
+
+		try {
+			$this->do_process( $product_id, $urls, $attempt, $names );
+		} finally {
+			ImagesGuard::release();
+		}
+	}
+
+	/**
+	 * Body of `process()`.
+	 *
+	 * @param int   $product_id Product id.
+	 * @param array $urls       Image URLs.
+	 * @param int   $attempt    Attempt number (starts at 1).
+	 * @param array $names      File names by URL (optional).
+	 *
+	 * @throws Exception If no image could be assigned on the last attempt.
+	 */
+	private function do_process( $product_id, $urls, $attempt, $names ) {
 		$product_id = (int) $product_id;
 		$attempt    = max( 1, (int) $attempt );
 		$names      = (array) $names;
@@ -701,8 +842,15 @@ class Images {
 		}
 
 		$attachment_ids = array();
+		$deferred       = false;
 
-		foreach ( $urls as $url ) {
+		foreach ( array_values( $urls ) as $position => $url ) {
+			// Short of time or memory: save what there is and continue in a new action.
+			if ( $position > 0 && self::in_background() && ! ImagesGuard::has_budget() ) {
+				$deferred = true;
+				break;
+			}
+
 			$attachment_id = self::sideload( $url, $product_id, isset( $names[ $url ] ) ? $names[ $url ] : '' );
 			if ( is_wp_error( $attachment_id ) ) {
 				self::log_failure( 'product', $product_id, self::product_label( $product ), $url, $attachment_id );
@@ -726,6 +874,24 @@ class Images {
 		// family, WooCommerce syncs the parent on `shutdown`.
 		Webhooks::suppress_until_shutdown();
 		$product->save();
+
+		if ( $deferred ) {
+			// The rest: the replace action takes it from what is wanted and reuses
+			// the images already downloaded.
+			update_post_meta(
+				$product_id,
+				self::META_WANTED,
+				wp_json_encode(
+					array(
+						'urls'  => array_values( $urls ),
+						'names' => $names,
+					)
+				)
+			);
+			self::enqueue_continuation( $product_id );
+		} else {
+			ImagesGuard::clear( $product_id );
+		}
 
 		return $count;
 	}

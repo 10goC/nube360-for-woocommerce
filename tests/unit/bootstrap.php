@@ -15,6 +15,7 @@ require_once __DIR__ . '/stubs.php';
 // What WordPress defines and the plugin relies on.
 define( 'ABSPATH', $plugin_dir . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
+define( 'MB_IN_BYTES', 1048576 );
 define( 'WP_DEBUG', false );
 
 // The constants the main plugin file defines (see nube360-for-woocommerce.php).

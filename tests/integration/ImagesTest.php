@@ -3,6 +3,7 @@ namespace Nube360\WooCommerce\Tests\Integration;
 
 use Exception;
 use Nube360\WooCommerce\Images;
+use Nube360\WooCommerce\ImagesGuard;
 use Nube360\WooCommerce\Products;
 use Nube360\WooCommerce\Webhooks;
 use WC_Post_Data;
@@ -772,4 +773,104 @@ class ImagesTest extends TestCase {
 
 		$this->assertNamed( 'mug.png', $this->ids_of( $product )[0] );
 	}
+
+	/* ------------------------------------------------- stuck queue: budget, crashes, recovery */
+
+	public function tear_down_guard() {
+		remove_all_filters( 'nube360_wc_images_has_budget' );
+		delete_transient( ImagesGuard::RECOVERY_LOCK );
+	}
+
+	public function test_an_action_short_of_budget_saves_what_it_has_and_continues_in_a_new_action() {
+		$this->enable_background_processing();
+		$product = $this->product();
+		$urls    = array( 'https://images.test/1.png', 'https://images.test/2.png', 'https://images.test/3.png' );
+
+		// There is room for the first photo only.
+		add_filter( 'nube360_wc_images_has_budget', '__return_false' );
+		( new Images() )->process( $product->get_id(), $urls, 1 );
+		$this->tear_down_guard();
+
+		wp_cache_flush();
+		$this->assertCount( 1, $this->downloads, 'One photo per run when there is no budget.' );
+		$this->assertNotEmpty( wc_get_product( $product->get_id() )->get_image_id( 'edit' ), 'What was downloaded is already saved.' );
+
+		$continuation = $this->pending_actions( array( 'hook' => Images::REPLACE_HOOK ) );
+		$this->assertCount( 1, $continuation, 'The rest is in a new action.' );
+
+		// The continuation (now with budget) does the rest and reuses the first photo.
+		( new Images() )->process_replace( $product->get_id() );
+
+		wp_cache_flush();
+		$fresh = wc_get_product( $product->get_id() );
+		$this->assertCount( 2, $fresh->get_gallery_image_ids( 'edit' ) );
+		$this->assertCount( 3, $this->downloads, 'Nothing is downloaded twice.' );
+	}
+
+	public function test_a_crashed_action_is_continued_without_failing() {
+		$this->enable_background_processing();
+		$product = $this->product();
+		Images::schedule( $product->get_id(), array( 'https://images.test/one.png' ) );
+		$action_id = (int) key( $this->pending_actions() );
+		$wanted    = array(
+			'urls'  => array( 'https://images.test/one.png' ),
+			'names' => array(),
+		);
+
+		$this->assertTrue( ImagesGuard::recover_crash( $product->get_id(), $action_id, $wanted, 'Allowed memory size exhausted' ) );
+
+		$this->assertSame( \ActionScheduler_Store::STATUS_COMPLETE, \ActionScheduler::store()->get_status( $action_id ), 'The dead action is not left as failed: its work lives on.' );
+		$this->assertCount( 1, $this->pending_actions( array( 'hook' => Images::REPLACE_HOOK ) ) );
+		$this->assertTrue( ImagesGuard::is_degraded( $product->get_id() ) );
+
+		// The continuation gets the image and clears the record.
+		( new Images() )->process_replace( $product->get_id() );
+		wp_cache_flush();
+		$image_id = wc_get_product( $product->get_id() )->get_image_id( 'edit' );
+		$this->assertNotEmpty( $image_id );
+		$this->assertEmpty( get_post_meta( $product->get_id(), ImagesGuard::META_CRASHES, true ) );
+		$this->assertFalse( ImagesGuard::is_degraded( $product->get_id() ) );
+	}
+
+	public function test_a_product_that_keeps_crashing_is_given_up_instead_of_looping() {
+		$this->enable_background_processing();
+		$product = $this->product();
+
+		$this->assertTrue( ImagesGuard::recover_crash( $product->get_id(), 0, null, 'timeout' ) );
+		$this->assertTrue( ImagesGuard::recover_crash( $product->get_id(), 0, null, 'timeout' ) );
+		$this->assertFalse( ImagesGuard::recover_crash( $product->get_id(), 0, null, 'timeout' ), 'The third crash is left to Action Scheduler.' );
+	}
+
+	public function test_actions_stuck_by_a_dead_runner_are_freed_without_failing() {
+		global $wpdb;
+
+		$this->enable_background_processing();
+		$product = $this->product();
+		$ours_running = as_enqueue_async_action( Images::REPLACE_HOOK, array( $product->get_id() ), Images::GROUP );
+		$ours_claimed = as_enqueue_async_action( Images::REPLACE_HOOK, array( $product->get_id() + 1 ), Images::GROUP );
+		$foreign      = as_enqueue_async_action( 'some_other_hook', array( 1 ), 'other-group' );
+
+		$old = gmdate( 'Y-m-d H:i:s', time() - 600 );
+		$claim_id = 777;
+		$wpdb->insert( $wpdb->actionscheduler_claims, array( 'claim_id' => $claim_id, 'date_created_gmt' => $old ) ); // phpcs:ignore
+		foreach ( array( $ours_running, $ours_claimed, $foreign ) as $id ) {
+			$wpdb->update( $wpdb->actionscheduler_actions, array( 'claim_id' => $claim_id, 'last_attempt_gmt' => $old ), array( 'action_id' => $id ) ); // phpcs:ignore
+		}
+		$wpdb->update( $wpdb->actionscheduler_actions, array( 'status' => \ActionScheduler_Store::STATUS_RUNNING ), array( 'action_id' => $ours_running ) ); // phpcs:ignore
+
+		$this->assertGreaterThan( 0, \ActionScheduler::store()->get_claim_count(), 'The dead runner blocks the queue.' );
+
+		delete_transient( ImagesGuard::RECOVERY_LOCK );
+		ImagesGuard::recover_stuck();
+
+		$store = \ActionScheduler::store();
+		$this->assertSame( \ActionScheduler_Store::STATUS_PENDING, $store->get_status( $ours_running ), 'Back to pending, not failed.' );
+		$this->assertSame( 0, (int) $store->get_claim_id( $ours_running ) );
+		$this->assertSame( 0, (int) $store->get_claim_id( $ours_claimed ) );
+		$this->assertSame( $claim_id, (int) $store->get_claim_id( $foreign ), 'What is not ours is left alone.' );
+		$this->assertTrue( ImagesGuard::is_degraded( $product->get_id() ) );
+
+		delete_transient( ImagesGuard::RECOVERY_LOCK );
+	}
+
 }
